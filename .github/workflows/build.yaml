@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       KERNEL_SRC: ${{ github.workspace }}/android_kernel_oneplus_sm8550
-      DTBO_IMG: ${{ github.workspace }}/dtbo/dtbo.img
+      DTBO_URL: https://download.lineageos.org/salami/dtbo.img
       CROSS_COMPILE: ${{ github.workspace }}/toolchains/aarch64-linux-gnu/bin/aarch64-linux-gnu-
 
     steps:
