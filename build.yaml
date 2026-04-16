@@ -1,0 +1,53 @@
+name: Build OnePlus 11 Kernel
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build_kernel:
+    runs-on: ubuntu-latest
+    env:
+      KERNEL_SRC: ${{ github.workspace }}/android_kernel_oneplus_sm8550
+      DTBO_IMG: ${{ github.workspace }}/dtbo/dtbo.img
+      CROSS_COMPILE: ${{ github.workspace }}/toolchains/aarch64-linux-gnu/bin/aarch64-linux-gnu-
+
+    steps:
+    - name: Checkout kernel repo
+      uses: actions/checkout@v3
+      with:
+        submodules: true
+
+    - name: Set up cross-compiler
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.x"
+    - run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu bc build-essential flex bison libncurses-dev
+
+    - name: Copy DTBO image
+      run: |
+        mkdir -p dtbo
+        cp dtbo.img dtbo/
+
+    - name: Extract DTBs and link
+      run: |
+        chmod +x scripts/extract_and_link_dtbs.sh
+        ./scripts/extract_and_link_dtbs.sh $DTBO_IMG $KERNEL_SRC
+
+    - name: Prepare kernel
+      run: |
+        cd $KERNEL_SRC
+        cp device_defconfig .config
+        make oldconfig
+
+    - name: Build kernel
+      run: |
+        cd $KERNEL_SRC
+        make -j$(nproc) O=out ARCH=arm64 CROSS_COMPILE=$CROSS_COMPILE
+
+    - name: Upload compiled kernel
+      uses: actions/upload-artifact@v3
+      with:
+        name: kernel-output
+        path: $KERNEL_SRC/out/arch/arm64/boot/
