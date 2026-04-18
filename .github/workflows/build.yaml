@@ -82,34 +82,16 @@ jobs:
           curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s next
           echo "CONFIG_KSU=y" >> arch/arm64/configs/ksu_susfs.config
 
-      - name: Clone SUSFS repo
-        run: git clone --depth 1 -b gki-android14-5.15 https://gitlab.com/simonpunk/susfs4ksu.git susfs4ksu
+      # SUSFS disabled for boot testing
+      # - name: Clone SUSFS repo
+      #   run: git clone --depth 1 -b gki-android14-5.15 https://gitlab.com/simonpunk/susfs4ksu.git susfs4ksu
 
-      - name: Apply SUSFS patches
-        working-directory: kernel/oneplus/sm8550
-        run: |
-          cp ../../../susfs4ksu/kernel_patches/fs/* fs/
-          cp ../../../susfs4ksu/kernel_patches/include/linux/* include/linux/
-          SUSFS_PATCH=$(ls ../../../susfs4ksu/kernel_patches/*.patch 2>/dev/null | head -1)
-          if [ -n "$SUSFS_PATCH" ]; then
-            git apply --3way --whitespace=nowarn "$SUSFS_PATCH" && echo "Applied $(basename $SUSFS_PATCH)" || echo "Warning: $(basename $SUSFS_PATCH) applied with conflicts"
-          fi
-          KSU_SUSFS_PATCH=$(find KernelSU-Next -name "*susfs*.patch" 2>/dev/null | head -1)
-          [ -n "$KSU_SUSFS_PATCH" ] && git apply --3way --whitespace=nowarn "$KSU_SUSFS_PATCH" || true
-          printf '%s\n' \
-            'CONFIG_KSU_SUSFS=y' \
-            'CONFIG_KSU_SUSFS_SUS_PATH=y' \
-            'CONFIG_KSU_SUSFS_SUS_MOUNT=y' \
-            'CONFIG_KSU_SUSFS_SUS_KSTAT=y' \
-            'CONFIG_KSU_SUSFS_SUS_OVERLAYFS=y' \
-            'CONFIG_KSU_SUSFS_TRY_UMOUNT=y' \
-            'CONFIG_KSU_SUSFS_SPOOF_UNAME=y' \
-            'CONFIG_KSU_SUSFS_ENABLE_LOG=y' \
-            'CONFIG_KSU_SUSFS_OPEN_REDIRECT=y' \
-            '# CONFIG_OPLUS_FEATURE_SENSOR_CFG is not set' \
-            '# CONFIG_OPLUS_DEVICE_IFNO is not set' \
-            'CONFIG_QCOM_SMEM=y' \
-            >> arch/arm64/configs/ksu_susfs.config
+      # - name: Apply SUSFS patches
+      #   working-directory: kernel/oneplus/sm8550
+      #   run: |
+      #     cp ../../../susfs4ksu/kernel_patches/fs/* fs/
+      #     cp ../../../susfs4ksu/kernel_patches/include/linux/* include/linux/
+      #     ...etc
 
       # WildKernels patches disabled for boot testing
       # - name: Clone and apply WildKernels patches
