@@ -16,12 +16,9 @@ jobs:
     env:
       ARCH: arm64
       CROSS_COMPILE: aarch64-linux-gnu-
-      CLANG_DIR: ${{ github.workspace }}/prebuilts/clang/host/linux-x86/clang-r563880c/bin
-      LLVM_BINUTILS_DIR: ${{ github.workspace }}/prebuilts/clang/host/linux-x86/llvm-binutils-stable
       DEFCONFIG: lineage_oneplus11_defconfig
       CCACHE_DIR: ${{ github.workspace }}/.ccache
       KERNEL_OUT: out
-      GIT_TERMINAL_PROMPT: 0
 
     steps:
       - name: Configure git auth
@@ -30,14 +27,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential libncurses-dev bison flex libssl-dev bc ccache git wget unzip python3 python3-pip zip curl squashfs-tools abootimg
-
-      - name: Fetch Android Clang toolchain
-        run: |
-          mkdir -p prebuilts/clang/host
-          git clone --depth 1 --branch lineage-23.2 https://github.com/LineageOS/android_prebuilts_clang_host_linux-x86.git prebuilts/clang/host/linux-x86
-          echo "$CLANG_DIR" >> $GITHUB_PATH
-          echo "$LLVM_BINUTILS_DIR" >> $GITHUB_PATH
+          sudo apt-get install -y build-essential libncurses-dev bison flex libssl-dev bc ccache git wget unzip python3 python3-pip zip curl squashfs-tools abootimg clang lld llvm
 
       - name: Setup ccache
         run: |
@@ -56,11 +46,9 @@ jobs:
           ln -sfn ../sm8550-modules kernel/oneplus/sm8550-modules
 
       - name: Detect kernel version
-        id: detect_kernel
         run: |
           KVER=$(grep "^VERSION =" kernel/oneplus/sm8550/Makefile | awk '{print $3}')
           KPATCH=$(grep "^PATCHLEVEL =" kernel/oneplus/sm8550/Makefile | awk '{print $3}')
-          echo "Kernel version: $KVER.$KPATCH"
           echo "KERNEL_VERSION=$KVER.$KPATCH" >> $GITHUB_ENV
 
       - name: Decompress config.gz if exists
@@ -130,45 +118,38 @@ jobs:
       - name: Download LineageOS full build
         run: |
           wget -q "$LINEAGE_BUILD_URL" -O lineage.zip
-          unzip -q lineage.zip boot.img system.img
+          unzip -q lineage.zip boot.img
           mkdir -p kernel/oneplus/sm8550/ramdisk
 
-      - name: Extract ramdisk.img using abootimg
+      - name: Extract ramdisk using abootimg
         working-directory: kernel/oneplus/sm8550/ramdisk
         run: abootimg -x ../../../boot.img
 
       - name: Build kernel
         working-directory: kernel/oneplus/sm8550
         run: |
-          export PATH="$CLANG_DIR:$LLVM_BINUTILS_DIR:$PATH"
           make O=$KERNEL_OUT LLVM=1 LLVM_IAS=1 CLANG_TRIPLE=aarch64-linux-gnu- $DEFCONFIG
           make -j$JOBS O=$KERNEL_OUT LLVM=1 LLVM_IAS=1 CLANG_TRIPLE=aarch64-linux-gnu- Image.gz-dtb
 
       - name: Compile modules
         working-directory: kernel/oneplus/sm8550-modules
         run: |
-          export PATH="$CLANG_DIR:$LLVM_BINUTILS_DIR:$PATH"
           make -C ../sm8550 M=$(pwd) O=../sm8550/$KERNEL_OUT LLVM=1 LLVM_IAS=1 CLANG_TRIPLE=aarch64-linux-gnu- modules
 
-      - name: Package boot.img using mkbootimg.py
+      - name: Repack boot.img with new kernel
         working-directory: kernel/oneplus/sm8550
         run: |
-          mkdir -p $KERNEL_OUT/bootimg
-          cp $KERNEL_OUT/arch/arm64/boot/Image.gz-dtb $KERNEL_OUT/bootimg/zImage-dtb
-          wget -q https://android.googlesource.com/platform/system/tools/mkbootimg/+/refs/heads/master/mkbootimg.py?format=TEXT -O mkbootimg.py.base64
-          base64 --decode mkbootimg.py.base64 > mkbootimg.py
-          chmod +x mkbootimg.py
-          python3 mkbootimg.py --kernel $KERNEL_OUT/bootimg/zImage-dtb --ramdisk ramdisk/boot.img-ramdisk.cpio.gz --output $KERNEL_OUT/boot.img
+          cp ../../../boot.img $KERNEL_OUT/boot.img
+          abootimg -u $KERNEL_OUT/boot.img -k $KERNEL_OUT/arch/arm64/boot/Image.gz-dtb
 
-      - name: Create minimal AK3 flashable zip
+      - name: Create AK3 flashable zip
         working-directory: kernel/oneplus/sm8550
         run: |
           mkdir -p $KERNEL_OUT/flashable-AK3/META-INF/com/google/android
           cp $KERNEL_OUT/boot.img $KERNEL_OUT/flashable-AK3/boot.img
-          echo "ui_print(\"Flashing OnePlus11 Kernel\");" > $KERNEL_OUT/flashable-AK3/META-INF/com/google/android/updater-script
-          echo "package_extract_file(\"boot.img\", \"/boot.img\");" >> $KERNEL_OUT/flashable-AK3/META-INF/com/google/android/updater-script
-          cd $KERNEL_OUT/flashable-AK3
-          zip -r OnePlus11-Kernel-AK3.zip *
+          echo 'ui_print("Flashing OnePlus11 Kernel");' > $KERNEL_OUT/flashable-AK3/META-INF/com/google/android/updater-script
+          echo 'package_extract_file("boot.img", "/boot.img");' >> $KERNEL_OUT/flashable-AK3/META-INF/com/google/android/updater-script
+          cd $KERNEL_OUT/flashable-AK3 && zip -r OnePlus11-Kernel-AK3.zip *
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -183,7 +164,7 @@ jobs:
         with:
           tag_name: "GKI-23.2-${{ github.run_number }}"
           name: "OnePlus11 Kernel Build #${{ github.run_number }}"
-          body: "Automated OnePlus 11 GKI kernel build with WildKSU + SUSFS. Boot.img + AK3 zip."
+          body: "Automated OnePlus 11 GKI kernel build with KernelSU-Next + SUSFS. Boot.img + AK3 zip."
           draft: false
           prerelease: false
           files: |
