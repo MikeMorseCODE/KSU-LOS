@@ -109,6 +109,11 @@ jobs:
         working-directory: kernel/oneplus/sm8550
         run: |
           make O=$KERNEL_OUT LLVM=1 LLVM_IAS=1 CLANG_TRIPLE=aarch64-linux-gnu- $DEFCONFIG
+          # Fix dependency: smem must be built-in (not module) for oplus sensor devinfo
+          scripts/config --file $KERNEL_OUT/.config -e QCOM_SMEM
+          # Disable oplus sensor devinfo if get_project symbol is unavailable at link time
+          scripts/config --file $KERNEL_OUT/.config -d OPLUS_SENSOR_DEVINFO
+          make O=$KERNEL_OUT LLVM=1 LLVM_IAS=1 CLANG_TRIPLE=aarch64-linux-gnu- olddefconfig
           make -j$JOBS O=$KERNEL_OUT LLVM=1 LLVM_IAS=1 CLANG_TRIPLE=aarch64-linux-gnu- Image.gz-dtb
 
       - name: Compile modules
