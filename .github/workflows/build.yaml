@@ -24,6 +24,9 @@ jobs:
       GIT_TERMINAL_PROMPT: 0
 
     steps:
+      - name: Configure git auth
+        run: git config --global url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+
       - name: Install dependencies
         run: |
           sudo apt-get update
