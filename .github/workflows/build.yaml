@@ -1,12 +1,12 @@
-name: OnePlus 11 GKI Kernel Auto Build + Dynamic WildKSU + AK3 + Release
+name: OnePlus 11 GKI Kernel Build + WildKSU + SUSFS + Release
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 4 * * *'
+    - cron: '0 4 * * *'  # daily at 04:00 UTC
 
 jobs:
-  build_gki_kernel:
+  build_kernel:
     runs-on: ubuntu-latest
     env:
       ARCH: arm64
@@ -29,14 +29,14 @@ jobs:
       - name: Detect number of CPU cores
         run: echo "JOBS=$(nproc)" >> $GITHUB_ENV
 
-      - name: Clone kernel repos
+      - name: Clone LineageOS kernel repos
         run: |
           git clone --depth 1 --branch lineage-23.2 https://github.com/LineageOS/android_kernel_oneplus_sm8550.git kernel/oneplus/sm8550
           git clone --depth 1 --branch lineage-23.2 https://github.com/LineageOS/android_kernel_oneplus_sm8550-devicetrees.git kernel/oneplus/sm8550-devicetrees
           git clone --depth 1 --branch lineage-23.2 https://github.com/LineageOS/android_kernel_oneplus_sm8550-modules.git kernel/oneplus/sm8550-modules
 
-      - name: Clone WildKernels patch repo
-        run: git clone --depth 1 https://github.com/WildKernels/kernel_patches.git kernel_patches
+      - name: Clone GKI KernelSU + SUSFS patches
+        run: git clone --depth 1 https://github.com/WildKernels/GKI_KernelSU_SUSFS.git kernel_patches
 
       - name: Detect kernel version
         id: detect_kernel
@@ -46,30 +46,34 @@ jobs:
           echo "Kernel version: $KVER.$KPATCH"
           echo "KERNEL_VERSION=$KVER.$KPATCH" >> $GITHUB_ENV
 
-      - name: Apply new WildKSU + SUSFS patches
+      - name: Decompress config.gz to defconfig
+        working-directory: kernel/oneplus/sm8550/arch/arm64/configs
+        run: gunzip -c config.gz > lineage_oneplus11_defconfig
+
+      - name: Apply WildKSU + SUSFS patches
         working-directory: kernel/oneplus/sm8550
         run: |
-          PATCH_DIR=../../kernel_patches/wild
-          echo "Applying patches for kernel $KERNEL_VERSION..."
+          PATCH_DIR=../../kernel_patches
+          if [ ! -d "$PATCH_DIR" ]; then
+            echo "Error: patch folder $PATCH_DIR does not exist!"
+            exit 1
+          fi
           touch applied_patches.txt
           for patch in $(ls $PATCH_DIR | grep "$KERNEL_VERSION"); do
-            if grep -qx "$patch" applied_patches.txt; then
-              echo "$patch already applied"
-            else
+            if ! grep -qx "$patch" applied_patches.txt; then
               if git apply --check $PATCH_DIR/$patch; then
                 git apply $PATCH_DIR/$patch
                 echo "$patch" >> applied_patches.txt
                 echo "Applied $patch"
               else
-                echo "Failed check: $patch, skipping"
+                echo "Skipping $patch (check failed)"
               fi
             fi
           done
 
-      - name: Download official LineageOS full build (OnePlus 11)
+      - name: Download official LineageOS full build
         run: |
           BUILD_URL="https://mirrorbits.lineageos.org/full/salami/20260417/lineage-23.2-20260417-nightly-salami-signed.zip"
-          echo "Downloading official LineageOS build: $BUILD_URL"
           wget -q $BUILD_URL -O lineage.zip
           unzip -q lineage.zip boot.img system.img
           mkdir -p kernel/oneplus/sm8550/ramdisk
@@ -83,10 +87,10 @@ jobs:
         working-directory: kernel/oneplus/sm8550/ramdisk
         run: ../extract_ramdisk.sh ../../boot.img
 
-      - name: Build kernel
+      - name: Build kernel using defconfig
         working-directory: kernel/oneplus/sm8550
         run: |
-          make O=out $DEFCONFIG
+          make O=out lineage_oneplus11_defconfig
           make -j$JOBS O=out
 
       - name: Compile modules
@@ -120,12 +124,12 @@ jobs:
             kernel/oneplus/sm8550/out/boot.img
             kernel/oneplus/sm8550/out/flashable-AK3/OnePlus11-Kernel-AK3.zip
 
-      - name: Create GitHub release and upload assets
+      - name: Create GitHub release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: "GKI-23.2-${{ github.run_number }}"
           name: "OnePlus11 Kernel Build #${{ github.run_number }}"
-          body: "Automated build of OnePlus 11 GKI kernel with Wild KSU + SUSFS patches. Includes boot.img and AK3 flashable zip."
+          body: "Automated build of OnePlus 11 GKI kernel with WildKSU + SUSFS patches. Includes boot.img and AK3 zip."
           draft: false
           prerelease: false
           files: |
