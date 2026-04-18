@@ -1,4 +1,4 @@
-name: OnePlus 11 GKI Kernel Auto Build + Dynamic WildKSU + AK3
+name: OnePlus 11 GKI Kernel Auto Build + Dynamic WildKSU + AK3 + Release
 
 on:
   workflow_dispatch:
@@ -12,7 +12,6 @@ jobs:
       ARCH: arm64
       CROSS_COMPILE: aarch64-linux-gnu-
       DEFCONFIG: lineage_oneplus11_defconfig
-      JOBS: ${{ runner.cpus }}
       CCACHE_DIR: ${{ github.workspace }}/.ccache
 
     steps:
@@ -26,6 +25,9 @@ jobs:
           mkdir -p $CCACHE_DIR
           ccache -M 10G
           ccache -s
+
+      - name: Detect number of CPU cores
+        run: echo "JOBS=$(nproc)" >> $GITHUB_ENV
 
       - name: Clone kernel repos
         run: |
@@ -118,3 +120,17 @@ jobs:
           path: |
             kernel/oneplus/sm8550/out/boot.img
             kernel/oneplus/sm8550/out/flashable-AK3/OnePlus11-Kernel-AK3.zip
+
+      - name: Create GitHub release and upload assets
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: "GKI-23.2-${{ github.run_number }}"
+          name: "OnePlus11 Kernel Build #${{ github.run_number }}"
+          body: "Automated build of OnePlus 11 GKI kernel with Wild KSU + SUSFS patches. Includes boot.img and AK3 flashable zip."
+          draft: false
+          prerelease: false
+          files: |
+            kernel/oneplus/sm8550/out/boot.img
+            kernel/oneplus/sm8550/out/flashable-AK3/OnePlus11-Kernel-AK3.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
