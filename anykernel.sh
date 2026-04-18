@@ -13,7 +13,7 @@ device.name2=OP5916L1
 device.name3=CPH2449
 device.name4=PHB110
 device.name5=OP594DL1
-supported.versions=14
+supported.versions=13-14
 ' ; }
 
 block=/dev/block/bootdevice/by-name/boot;
