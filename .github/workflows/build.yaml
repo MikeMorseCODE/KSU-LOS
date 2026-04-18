@@ -80,17 +80,19 @@ jobs:
           fi
           KSU_SUSFS_PATCH=$(find KernelSU-Next -name "*susfs*.patch" 2>/dev/null | head -1)
           [ -n "$KSU_SUSFS_PATCH" ] && patch -p1 < "$KSU_SUSFS_PATCH" || true
-          cat >> arch/arm64/configs/lineage_oneplus11_defconfig << 'EOF'
-          CONFIG_KSU_SUSFS=y
-          CONFIG_KSU_SUSFS_SUS_PATH=y
-          CONFIG_KSU_SUSFS_SUS_MOUNT=y
-          CONFIG_KSU_SUSFS_SUS_KSTAT=y
-          CONFIG_KSU_SUSFS_SUS_OVERLAYFS=y
-          CONFIG_KSU_SUSFS_TRY_UMOUNT=y
-          CONFIG_KSU_SUSFS_SPOOF_UNAME=y
-          CONFIG_KSU_SUSFS_ENABLE_LOG=y
-          CONFIG_KSU_SUSFS_OPEN_REDIRECT=y
-          EOF
+          printf '%s\n' \
+            'CONFIG_KSU_SUSFS=y' \
+            'CONFIG_KSU_SUSFS_SUS_PATH=y' \
+            'CONFIG_KSU_SUSFS_SUS_MOUNT=y' \
+            'CONFIG_KSU_SUSFS_SUS_KSTAT=y' \
+            'CONFIG_KSU_SUSFS_SUS_OVERLAYFS=y' \
+            'CONFIG_KSU_SUSFS_TRY_UMOUNT=y' \
+            'CONFIG_KSU_SUSFS_SPOOF_UNAME=y' \
+            'CONFIG_KSU_SUSFS_ENABLE_LOG=y' \
+            'CONFIG_KSU_SUSFS_OPEN_REDIRECT=y' \
+            'CONFIG_OPLUS_DEVICE_IFNO=y' \
+            'CONFIG_QCOM_SMEM=y' \
+            >> arch/arm64/configs/lineage_oneplus11_defconfig
 
       - name: Clone and apply WildKernels patches
         working-directory: kernel/oneplus/sm8550
@@ -109,11 +111,6 @@ jobs:
         working-directory: kernel/oneplus/sm8550
         run: |
           make O=$KERNEL_OUT LLVM=1 LLVM_IAS=1 CLANG_TRIPLE=aarch64-linux-gnu- $DEFCONFIG
-          # Fix dependency: smem must be built-in (not module) for oplus sensor devinfo
-          scripts/config --file $KERNEL_OUT/.config -e QCOM_SMEM
-          # Disable oplus sensor devinfo if get_project symbol is unavailable at link time
-          scripts/config --file $KERNEL_OUT/.config -d OPLUS_SENSOR_DEVINFO
-          make O=$KERNEL_OUT LLVM=1 LLVM_IAS=1 CLANG_TRIPLE=aarch64-linux-gnu- olddefconfig
           make -j$JOBS O=$KERNEL_OUT LLVM=1 LLVM_IAS=1 CLANG_TRIPLE=aarch64-linux-gnu- Image.gz-dtb
 
       - name: Compile modules
