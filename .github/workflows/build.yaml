@@ -76,8 +76,14 @@ jobs:
           git clone --depth 1 -b gki-android14-5.15 https://gitlab.com/simonpunk/susfs4ksu.git ../../../susfs4ksu
           cp -r ../../../susfs4ksu/kernel_patches/fs/* fs/
           cp -r ../../../susfs4ksu/kernel_patches/include/linux/* include/linux/
-          SUSFS_PATCH=$(ls ../../../susfs4ksu/kernel_patches/*.patch 2>/dev/null | head -1)
-          [ -n "$SUSFS_PATCH" ] && git apply --3way --whitespace=nowarn "$SUSFS_PATCH" || true
+          for patch in ../../../susfs4ksu/kernel_patches/*.patch; do
+            case "$patch" in
+              *kernel*|*feature*|*runtime*|*Kbuild*|*Kconfig*)
+                echo "Skipping $patch (not compatible with KSU-Next layout)" ;;
+              *)
+                git apply --check "$patch" 2>/dev/null && git apply "$patch" && echo "Applied $patch" || echo "Skipped $patch (does not apply)" ;;
+            esac
+          done
 
       - name: Build kernel
         working-directory: kernel/oneplus/sm8550
