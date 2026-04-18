@@ -90,10 +90,10 @@ jobs:
           cp ../../../susfs4ksu/kernel_patches/include/linux/* include/linux/
           SUSFS_PATCH=$(ls ../../../susfs4ksu/kernel_patches/*.patch 2>/dev/null | head -1)
           if [ -n "$SUSFS_PATCH" ]; then
-            patch -p1 < "$SUSFS_PATCH" && echo "Applied $(basename $SUSFS_PATCH)"
+            git apply --3way --whitespace=nowarn "$SUSFS_PATCH" && echo "Applied $(basename $SUSFS_PATCH)" || echo "Warning: $(basename $SUSFS_PATCH) applied with conflicts"
           fi
           KSU_SUSFS_PATCH=$(find KernelSU-Next -name "*susfs*.patch" 2>/dev/null | head -1)
-          [ -n "$KSU_SUSFS_PATCH" ] && patch -p1 < "$KSU_SUSFS_PATCH" || true
+          [ -n "$KSU_SUSFS_PATCH" ] && git apply --3way --whitespace=nowarn "$KSU_SUSFS_PATCH" || true
           printf '%s\n' \
             'CONFIG_KSU_SUSFS=y' \
             'CONFIG_KSU_SUSFS_SUS_PATH=y' \
