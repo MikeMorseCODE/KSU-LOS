@@ -2,7 +2,7 @@
 # osm0sis @ xda-developers
 
 properties() { '
-kernel.string=LineageOS KSU-Next+SUSFS Kernel for OnePlus 11
+kernel.string=Image.gz-dtb
 do.devicecheck=0
 do.modules=0
 do.systemless=1
