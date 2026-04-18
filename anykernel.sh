@@ -3,6 +3,7 @@
 
 properties() { '
 kernel.string=LineageOS KSU-Next+SUSFS Kernel for OnePlus 11
+kernel.name=Image
 do.devicecheck=0
 do.modules=1
 do.systemless=1
@@ -21,3 +22,4 @@ patch_vbmeta_flag=auto;
 . tools/ak3-core.sh;
 split_boot;
 flash_boot;
+set_perm_recursive 0 0 755 644 /lib/modules;

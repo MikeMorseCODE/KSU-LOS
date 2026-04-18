@@ -127,6 +127,8 @@ jobs:
           git clone --depth 1 https://github.com/osm0sis/AnyKernel3.git AnyKernel3
           cp anykernel.sh AnyKernel3/anykernel.sh
           cp kernel/oneplus/sm8550/$KERNEL_OUT/arch/arm64/boot/Image AnyKernel3/
+          mkdir -p AnyKernel3/modules
+          cp -r kernel/oneplus/sm8550/$KERNEL_OUT/lib/modules/* AnyKernel3/modules/
           cd AnyKernel3
           zip -r9 ../OnePlus11-KSU-SUSFS-AK3.zip * -x ".git/*" -x "README.md"
 
