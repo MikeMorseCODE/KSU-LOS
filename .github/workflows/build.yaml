@@ -111,18 +111,19 @@ jobs:
             'CONFIG_QCOM_SMEM=y' \
             >> arch/arm64/configs/ksu_susfs.config
 
-      - name: Clone and apply WildKernels patches
-        working-directory: kernel/oneplus/sm8550
-        run: |
-          git clone --depth 1 https://github.com/WildKernels/kernel_patches.git ../../../wildkernels_patches
-          for patch in ../../../wildkernels_patches/*.patch; do
-            [ -f "$patch" ] || continue
-            if git apply --check "$patch" 2>/dev/null; then
-              git apply "$patch" && echo "Applied $(basename $patch)"
-            else
-              echo "Skipping $(basename $patch)"
-            fi
-          done
+      # WildKernels patches disabled for boot testing
+      # - name: Clone and apply WildKernels patches
+      #   working-directory: kernel/oneplus/sm8550
+      #   run: |
+      #     git clone --depth 1 https://github.com/WildKernels/kernel_patches.git ../../../wildkernels_patches
+      #     for patch in ../../../wildkernels_patches/*.patch; do
+      #       [ -f "$patch" ] || continue
+      #       if git apply --check "$patch" 2>/dev/null; then
+      #         git apply "$patch" && echo "Applied $(basename $patch)"
+      #       else
+      #         echo "Skipping $(basename $patch)"
+      #       fi
+      #     done
 
       - name: Build kernel
         working-directory: kernel/oneplus/sm8550
