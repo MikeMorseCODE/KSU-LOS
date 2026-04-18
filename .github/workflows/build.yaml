@@ -74,8 +74,8 @@ jobs:
         working-directory: kernel/oneplus/sm8550
         run: |
           git clone --depth 1 -b gki-android14-5.15 https://gitlab.com/simonpunk/susfs4ksu.git ../../../susfs4ksu
-          cp ../../../susfs4ksu/kernel_patches/fs/* fs/
-          cp ../../../susfs4ksu/kernel_patches/include/linux/* include/linux/
+          cp -r ../../../susfs4ksu/kernel_patches/fs/* fs/
+          cp -r ../../../susfs4ksu/kernel_patches/include/linux/* include/linux/
           SUSFS_PATCH=$(ls ../../../susfs4ksu/kernel_patches/*.patch 2>/dev/null | head -1)
           [ -n "$SUSFS_PATCH" ] && git apply --3way --whitespace=nowarn "$SUSFS_PATCH" || true
 
