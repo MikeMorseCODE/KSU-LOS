@@ -22,6 +22,5 @@ ramdisk_compression=auto;
 patch_vbmeta_flag=auto;
 
 . tools/ak3-core.sh;
-split_boot;
-flash_boot;
-set_perm_recursive 0 0 755 644 /lib/modules;
+dump_boot;
+write_boot;
