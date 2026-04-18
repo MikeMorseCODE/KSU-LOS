@@ -2,6 +2,7 @@ name: OnePlus 11 GKI Kernel Build + KSU-Next + SUSFS + Release
 
 on:
   workflow_dispatch:
+    inputs: {}
   schedule:
     - cron: '0 4 * * *'
 
