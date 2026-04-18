@@ -90,8 +90,8 @@ jobs:
             'CONFIG_KSU_SUSFS_SPOOF_UNAME=y' \
             'CONFIG_KSU_SUSFS_ENABLE_LOG=y' \
             'CONFIG_KSU_SUSFS_OPEN_REDIRECT=y' \
-            'CONFIG_OPLUS_FEATURE_SENSOR_CFG=m' \
-            'CONFIG_OPLUS_DEVICE_IFNO=m' \
+            '# CONFIG_OPLUS_FEATURE_SENSOR_CFG is not set' \
+            '# CONFIG_OPLUS_DEVICE_IFNO is not set' \
             'CONFIG_QCOM_SMEM=y' \
             >> arch/arm64/configs/lineage_oneplus11_defconfig
 
