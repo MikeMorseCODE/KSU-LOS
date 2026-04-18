@@ -115,32 +115,13 @@ jobs:
         working-directory: kernel/oneplus/sm8550-modules
         run: make -C ../sm8550 M=$(pwd) O=../sm8550/$KERNEL_OUT LLVM=1 LLVM_IAS=1 CLANG_TRIPLE=aarch64-linux-gnu- modules
 
+      - name: Checkout repo for anykernel.sh
+        uses: actions/checkout@v4
+
       - name: Package AnyKernel3 zip
         run: |
           git clone --depth 1 https://github.com/osm0sis/AnyKernel3.git AnyKernel3
-          cat > AnyKernel3/anykernel.sh << 'AKEOF'
-# AnyKernel3 - OnePlus 11 (salami)
-properties() { '
-kernel.string=LineageOS KSU-Next+SUSFS Kernel for OnePlus 11
-do.devicecheck=1
-do.modules=0
-do.systemless=1
-do.cleanup=1
-do.cleanuponabort=0
-device.name1=salami
-device.name2=OP5916L1
-supported.versions=14
-' ; }
-
-block=/dev/block/bootdevice/by-name/boot;
-is_slot_device=1;
-ramdisk_compression=auto;
-patch_vbmeta_flag=auto;
-
-. tools/ak3-core.sh;
-split_boot;
-flash_boot;
-AKEOF
+          cp anykernel.sh AnyKernel3/anykernel.sh
           cp kernel/oneplus/sm8550/$KERNEL_OUT/arch/arm64/boot/Image.gz-dtb AnyKernel3/
           cd AnyKernel3
           zip -r9 ../OnePlus11-KSU-SUSFS-AK3.zip * -x ".git/*" -x "README.md"
