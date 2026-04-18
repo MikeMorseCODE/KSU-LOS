@@ -2,7 +2,11 @@ name: OnePlus 11 GKI Kernel Build + KSU-Next + SUSFS + Release
 
 on:
   workflow_dispatch:
-    inputs: {}
+    inputs:
+      lineage_build_url:
+        description: 'Optional: LineageOS build URL (not used, kept for compat)'
+        required: false
+        type: string
   schedule:
     - cron: '0 4 * * *'
 
