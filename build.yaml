@@ -1,53 +1,121 @@
-name: Build OnePlus 11 Kernel
+name: OnePlus 11 GKI Kernel Auto Build + Dynamic WildKSU + AK3
 
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
+  schedule:
+    - cron: '0 4 * * *' # daily at 04:00 UTC
 
 jobs:
-  build_kernel:
-    runs-on: ubuntu-latest
+  build_gki_kernel:
+    runs-on: ubuntu-22.04
     env:
-      KERNEL_SRC: ${{ github.workspace }}/android_kernel_oneplus_sm8550
-      DTBO_IMG: ${{ github.workspace }}/dtbo/dtbo.img
-      CROSS_COMPILE: ${{ github.workspace }}/toolchains/aarch64-linux-gnu/bin/aarch64-linux-gnu-
+      ARCH: arm64
+      CROSS_COMPILE: aarch64-linux-gnu-
+      DEFCONFIG: lineage_oneplus11_defconfig
+      JOBS: ${{ runner.cpus }}
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
 
     steps:
-    - name: Checkout kernel repo
-      uses: actions/checkout@v3
-      with:
-        submodules: true
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libncurses-dev bison flex libssl-dev bc ccache git wget unzip python3 python3-pip zip curl squashfs-tools
 
-    - name: Set up cross-compiler
-      uses: actions/setup-python@v4
-      with:
-        python-version: "3.x"
-    - run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu bc build-essential flex bison libncurses-dev
+      - name: Setup ccache
+        run: |
+          mkdir -p $CCACHE_DIR
+          ccache -M 10G
+          ccache -s
 
-    - name: Copy DTBO image
-      run: |
-        mkdir -p dtbo
-        cp dtbo.img dtbo/
+      - name: Clone kernel repos
+        run: |
+          git clone --depth 1 --branch lineage-23.2 https://github.com/LineageOS/android_kernel_oneplus_sm8550.git kernel/oneplus/sm8550
+          git clone --depth 1 --branch lineage-23.2 https://github.com/LineageOS/android_kernel_oneplus_sm8550-devicetrees.git kernel/oneplus/sm8550-devicetrees
+          git clone --depth 1 --branch lineage-23.2 https://github.com/LineageOS/android_kernel_oneplus_sm8550-modules.git kernel/oneplus/sm8550-modules
 
-    - name: Extract DTBs and link
-      run: |
-        chmod +x scripts/extract_and_link_dtbs.sh
-        ./scripts/extract_and_link_dtbs.sh $DTBO_IMG $KERNEL_SRC
+      - name: Clone WildKernels patch repo (latest)
+        run: git clone --depth 1 https://github.com/WildKernels/kernel_patches.git kernel_patches
 
-    - name: Prepare kernel
-      run: |
-        cd $KERNEL_SRC
-        cp device_defconfig .config
-        make oldconfig
+      - name: Detect kernel version
+        id: detect_kernel
+        run: |
+          KVER=$(grep "^VERSION =" kernel/oneplus/sm8550/Makefile | awk '{print $3}')
+          KPATCH=$(grep "^PATCHLEVEL =" kernel/oneplus/sm8550/Makefile | awk '{print $3}')
+          echo "Kernel version: $KVER.$KPATCH"
+          echo "KERNEL_VERSION=$KVER.$KPATCH" >> $GITHUB_ENV
 
-    - name: Build kernel
-      run: |
-        cd $KERNEL_SRC
-        make -j$(nproc) O=out ARCH=arm64 CROSS_COMPILE=$CROSS_COMPILE
+      - name: Apply new WildKSU + SUSFS patches
+        working-directory: kernel/oneplus/sm8550
+        run: |
+          PATCH_DIR=../../kernel_patches/wild
+          echo "Applying patches for kernel $KERNEL_VERSION..."
+          # Track applied patches
+          touch applied_patches.txt
+          for patch in $(ls $PATCH_DIR | grep "$KERNEL_VERSION"); do
+            if grep -qx "$patch" applied_patches.txt; then
+              echo "$patch already applied"
+            else
+              if git apply --check $PATCH_DIR/$patch; then
+                git apply $PATCH_DIR/$patch
+                echo "$patch" >> applied_patches.txt
+                echo "Applied $patch"
+              else
+                echo "Failed check: $patch, skipping"
+              fi
+            fi
+          done
 
-    - name: Upload compiled kernel
-      uses: actions/upload-artifact@v3
-      with:
-        name: kernel-output
-        path: $KERNEL_SRC/out/arch/arm64/boot/
+      - name: Download latest official LineageOS build (OnePlus 11)
+        run: |
+          BUILD_PAGE=$(curl -s https://download.lineageos.org/oneplus11)
+          BUILD_URL=$(echo "$BUILD_PAGE" | grep -oP 'https://.*?zip' | head -n1)
+          echo "Downloading latest LineageOS build: $BUILD_URL"
+          wget -q $BUILD_URL -O lineage.zip
+          unzip -q lineage.zip boot.img system.img
+          mkdir -p kernel/oneplus/sm8550/ramdisk
+
+      - name: Fetch ramdisk extraction script
+        run: |
+          wget -O kernel/oneplus/sm8550/ramdisk/extract_ramdisk.sh https://raw.githubusercontent.com/EmberHeart/OnePlus11KernelTools/main/extract_boot.sh
+          chmod +x kernel/oneplus/sm8550/ramdisk/extract_ramdisk.sh
+
+      - name: Extract ramdisk.img
+        working-directory: kernel/oneplus/sm8550/ramdisk
+        run: ../extract_ramdisk.sh ../../boot.img
+
+      - name: Build kernel
+        working-directory: kernel/oneplus/sm8550
+        run: |
+          make O=out $DEFCONFIG
+          make -j$JOBS O=out
+
+      - name: Compile modules
+        working-directory: kernel/oneplus/sm8550-modules
+        run: make -C ../sm8550 M=$(pwd) O=../sm8550/out modules
+
+      - name: Package boot.img
+        working-directory: kernel/oneplus/sm8550
+        run: |
+          mkdir -p out/bootimg
+          cp out/arch/arm64/boot/Image.gz-dtb out/bootimg/zImage-dtb
+          wget -O mkbootimg https://raw.githubusercontent.com/EmberHeart/OnePlus11KernelTools/main/mkbootimg
+          chmod +x mkbootimg
+          ./mkbootimg --kernel out/bootimg/zImage-dtb --ramdisk ramdisk/ramdisk.img --output out/boot.img
+
+      - name: Create AK3-style flashable zip
+        working-directory: kernel/oneplus/sm8550
+        run: |
+          mkdir -p out/flashable-AK3/META-INF/com/google/android
+          cp out/boot.img out/flashable-AK3/boot.img
+          wget -O updater-script https://raw.githubusercontent.com/EmberHeart/OnePlus11KernelTools/main/updater-script
+          mv updater-script out/flashable-AK3/META-INF/com/google/android/updater-script
+          cd out/flashable-AK3
+          zip -r OnePlus11-Kernel-AK3.zip *
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: OnePlus11-Kernel-Images
+          path: |
+            kernel/oneplus/sm8550/out/boot.img
+            kernel/oneplus/sm8550/out/flashable-AK3/OnePlus11-Kernel-AK3.zip
