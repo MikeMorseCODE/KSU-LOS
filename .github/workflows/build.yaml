@@ -112,7 +112,7 @@ jobs:
         working-directory: kernel/oneplus/sm8550
         run: |
           make O=$KERNEL_OUT LLVM=1 LLVM_IAS=1 CLANG_TRIPLE=aarch64-linux-gnu- $DEFCONFIG
-          make -j$JOBS O=$KERNEL_OUT LLVM=1 LLVM_IAS=1 CLANG_TRIPLE=aarch64-linux-gnu- Image.gz-dtb
+          make -j$JOBS O=$KERNEL_OUT LLVM=1 LLVM_IAS=1 CLANG_TRIPLE=aarch64-linux-gnu- Image
 
       - name: Compile modules
         working-directory: kernel/oneplus/sm8550-modules
@@ -125,7 +125,7 @@ jobs:
         run: |
           git clone --depth 1 https://github.com/osm0sis/AnyKernel3.git AnyKernel3
           cp anykernel.sh AnyKernel3/anykernel.sh
-          cp kernel/oneplus/sm8550/$KERNEL_OUT/arch/arm64/boot/Image.gz-dtb AnyKernel3/
+          cp kernel/oneplus/sm8550/$KERNEL_OUT/arch/arm64/boot/Image AnyKernel3/
           cd AnyKernel3
           zip -r9 ../OnePlus11-KSU-SUSFS-AK3.zip * -x ".git/*" -x "README.md"
 
