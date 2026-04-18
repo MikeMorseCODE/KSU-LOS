@@ -13,6 +13,7 @@ on:
 jobs:
   build_kernel:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     env:
       ARCH: arm64
       CROSS_COMPILE: aarch64-linux-gnu-
@@ -20,6 +21,20 @@ jobs:
       KERNEL_OUT: out
 
     steps:
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/share/boost
+          sudo apt-get clean
+          df -h
+
+      - name: Setup swap
+        run: |
+          sudo fallocate -l 8G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          free -h
+
       - name: Configure git auth
         run: git config --global url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
 
@@ -28,13 +43,20 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential libncurses-dev bison flex libssl-dev bc ccache git wget unzip python3 zip curl clang lld llvm libelf-dev
 
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-${{ runner.os }}-${{ github.sha }}
+          restore-keys: ccache-${{ runner.os }}-
+
       - name: Setup ccache
         run: |
           mkdir -p $CCACHE_DIR
           ccache -M 10G
 
       - name: Detect CPU cores
-        run: echo "JOBS=$(nproc)" >> $GITHUB_ENV
+        run: echo "JOBS=$(nproc --ignore=1)" >> $GITHUB_ENV
 
       - name: Clone LineageOS kernel repos
         run: |
