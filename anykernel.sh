@@ -21,5 +21,5 @@ ramdisk_compression=auto;
 patch_vbmeta_flag=auto;
 
 . tools/ak3-core.sh;
-dump_boot;
-write_boot;
+split_boot;
+flash_boot;
