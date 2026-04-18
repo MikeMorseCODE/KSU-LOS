@@ -4,7 +4,7 @@
 properties() { '
 kernel.string=LineageOS KSU-Next+SUSFS Kernel for OnePlus 11
 do.devicecheck=0
-do.modules=0
+do.modules=1
 do.systemless=1
 do.cleanup=1
 do.cleanuponabort=0
