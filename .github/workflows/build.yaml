@@ -118,7 +118,14 @@ jobs:
       - name: Download LineageOS full build
         run: |
           wget -q "$LINEAGE_BUILD_URL" -O lineage.zip
-          unzip -q lineage.zip boot.img
+          # OnePlus 11 is A/B: boot.img is inside payload.bin
+          unzip -q lineage.zip payload.bin
+          wget -q https://github.com/ssut/payload-dumper-go/releases/download/1.3.0/payload-dumper-go_1.3.0_linux_amd64.tar.gz -O pgo.tar.gz
+          tar xzf pgo.tar.gz payload-dumper-go
+          chmod +x payload-dumper-go
+          mkdir -p payload_out
+          ./payload-dumper-go -partitions boot -output payload_out payload.bin
+          cp payload_out/boot.img boot.img
           mkdir -p kernel/oneplus/sm8550/ramdisk
 
       - name: Extract ramdisk using abootimg
