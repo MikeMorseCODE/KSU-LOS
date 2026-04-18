@@ -68,11 +68,8 @@ jobs:
       - name: Build kernel
         working-directory: kernel/oneplus/sm8550
         run: |
-          make O=$KERNEL_OUT LLVM=1 LLVM_IAS=1 CLANG_TRIPLE=aarch64-linux-gnu- gki_defconfig
-          if [ -f arch/arm64/configs/vendor/oplus/kalama_GKI.config ]; then
-            ./scripts/kconfig/merge_config.sh -m -O $KERNEL_OUT $KERNEL_OUT/.config \
-              arch/arm64/configs/vendor/oplus/kalama_GKI.config
-          fi
+          cp $GITHUB_WORKSPACE/lineage_oneplus11_defconfig arch/arm64/configs/lineage_oneplus11_defconfig
+          make O=$KERNEL_OUT LLVM=1 LLVM_IAS=1 CLANG_TRIPLE=aarch64-linux-gnu- lineage_oneplus11_defconfig
           make O=$KERNEL_OUT LLVM=1 LLVM_IAS=1 CLANG_TRIPLE=aarch64-linux-gnu- olddefconfig
           make -j$JOBS O=$KERNEL_OUT LLVM=1 LLVM_IAS=1 CLANG_TRIPLE=aarch64-linux-gnu- Image
 
