@@ -74,9 +74,9 @@ jobs:
       - name: Apply SUSFS patches
         working-directory: kernel/oneplus/sm8550
         run: |
-          cp ../../susfs4ksu/kernel_patches/fs/* fs/
-          cp ../../susfs4ksu/kernel_patches/include/linux/* include/linux/
-          SUSFS_PATCH=$(ls ../../susfs4ksu/kernel_patches/*.patch 2>/dev/null | head -1)
+          cp ../../../susfs4ksu/kernel_patches/fs/* fs/
+          cp ../../../susfs4ksu/kernel_patches/include/linux/* include/linux/
+          SUSFS_PATCH=$(ls ../../../susfs4ksu/kernel_patches/*.patch 2>/dev/null | head -1)
           if [ -n "$SUSFS_PATCH" ]; then
             patch -p1 < "$SUSFS_PATCH" && echo "Applied $(basename $SUSFS_PATCH)"
           fi
@@ -97,8 +97,8 @@ jobs:
       - name: Clone and apply WildKernels patches
         working-directory: kernel/oneplus/sm8550
         run: |
-          git clone --depth 1 https://github.com/WildKernels/kernel_patches.git ../../wildkernels_patches
-          for patch in ../../wildkernels_patches/*.patch; do
+          git clone --depth 1 https://github.com/WildKernels/kernel_patches.git ../../../wildkernels_patches
+          for patch in ../../../wildkernels_patches/*.patch; do
             [ -f "$patch" ] || continue
             if git apply --check "$patch" 2>/dev/null; then
               git apply "$patch" && echo "Applied $(basename $patch)"
