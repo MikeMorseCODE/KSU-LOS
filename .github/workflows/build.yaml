@@ -113,4 +113,29 @@ jobs:
         run: |
           mkdir -p out/flashable-AK3/META-INF/com/google/android
           cp out/boot.img out/flashable-AK3/boot.img
-          echo "ui_print(\"Fl
+          echo "ui_print(\"Flashing OnePlus11 Kernel\");" > out/flashable-AK3/META-INF/com/google/android/updater-script
+          echo "package_extract_file(\"boot.img\", \"/boot.img\");" >> out/flashable-AK3/META-INF/com/google/android/updater-script
+          cd out/flashable-AK3
+          zip -r OnePlus11-Kernel-AK3.zip *
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: OnePlus11-Kernel-Images
+          path: |
+            kernel/oneplus/sm8550/out/boot.img
+            kernel/oneplus/sm8550/out/flashable-AK3/OnePlus11-Kernel-AK3.zip
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: "GKI-23.2-${{ github.run_number }}"
+          name: "OnePlus11 Kernel Build #${{ github.run_number }}"
+          body: "Automated OnePlus 11 GKI kernel build with WildKSU + SUSFS. Boot.img + AK3 zip."
+          draft: false
+          prerelease: false
+          files: |
+            kernel/oneplus/sm8550/out/boot.img
+            kernel/oneplus/sm8550/out/flashable-AK3/OnePlus11-Kernel-AK3.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
