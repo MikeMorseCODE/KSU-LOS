@@ -18,7 +18,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential libncurses-dev bison flex libssl-dev bc ccache git wget unzip python3 python3-pip zip curl squashfs-tools
+          sudo apt-get install -y build-essential libncurses-dev bison flex libssl-dev bc ccache git wget unzip python3 python3-pip zip curl squashfs-tools abootimg
 
       - name: Setup ccache
         run: |
@@ -29,13 +29,13 @@ jobs:
       - name: Detect CPU cores
         run: echo "JOBS=$(nproc)" >> $GITHUB_ENV
 
-      - name: Clone LineageOS kernel repos
+      - name: Clone kernel repos
         run: |
           git clone --depth 1 --branch lineage-23.2 https://github.com/LineageOS/android_kernel_oneplus_sm8550.git kernel/oneplus/sm8550
           git clone --depth 1 --branch lineage-23.2 https://github.com/LineageOS/android_kernel_oneplus_sm8550-devicetrees.git kernel/oneplus/sm8550-devicetrees
           git clone --depth 1 --branch lineage-23.2 https://github.com/LineageOS/android_kernel_oneplus_sm8550-modules.git kernel/oneplus/sm8550-modules
 
-      - name: Clone WildKSU + SUSFS patches
+      - name: Clone GKI KernelSU + SUSFS patches
         run: git clone --depth 1 https://github.com/WildKernels/GKI_KernelSU_SUSFS.git kernel_patches
 
       - name: Detect kernel version
@@ -46,34 +46,25 @@ jobs:
           echo "Kernel version: $KVER.$KPATCH"
           echo "KERNEL_VERSION=$KVER.$KPATCH" >> $GITHUB_ENV
 
-      - name: Decompress config.gz if it exists
+      - name: Decompress config.gz if exists
         run: |
           CONFIG_PATH=kernel/oneplus/sm8550/arch/arm64/configs/config.gz
           DEFCONFIG_PATH=kernel/oneplus/sm8550/arch/arm64/configs/lineage_oneplus11_defconfig
           if [ -f "$CONFIG_PATH" ]; then
-            echo "Decompressing config.gz to defconfig..."
             gunzip -c "$CONFIG_PATH" > "$DEFCONFIG_PATH"
-          else
-            echo "config.gz not found, assuming lineage_oneplus11_defconfig exists"
           fi
 
       - name: Apply WildKSU + SUSFS patches
         working-directory: kernel/oneplus/sm8550
         run: |
           PATCH_DIR=../../kernel_patches
-          if [ ! -d "$PATCH_DIR" ]; then
-            echo "Error: patch folder $PATCH_DIR does not exist!"
-            exit 1
-          fi
+          if [ ! -d "$PATCH_DIR" ]; then exit 1; fi
           touch applied_patches.txt
           for patch in $(ls $PATCH_DIR | grep "$KERNEL_VERSION"); do
             if ! grep -qx "$patch" applied_patches.txt; then
               if git apply --check $PATCH_DIR/$patch; then
                 git apply $PATCH_DIR/$patch
                 echo "$patch" >> applied_patches.txt
-                echo "Applied $patch"
-              else
-                echo "Skipping $patch (check failed)"
               fi
             fi
           done
@@ -85,14 +76,10 @@ jobs:
           unzip -q lineage.zip boot.img system.img
           mkdir -p kernel/oneplus/sm8550/ramdisk
 
-      - name: Fetch ramdisk extraction script
-        run: |
-          wget -O kernel/oneplus/sm8550/ramdisk/extract_ramdisk.sh https://raw.githubusercontent.com/EmberHeart/OnePlus11KernelTools/main/extract_boot.sh
-          chmod +x kernel/oneplus/sm8550/ramdisk/extract_ramdisk.sh
-
-      - name: Extract ramdisk.img
+      - name: Extract ramdisk.img using abootimg
         working-directory: kernel/oneplus/sm8550/ramdisk
-        run: ../extract_ramdisk.sh ../../boot.img
+        run: |
+          abootimg -x ../../boot.img
 
       - name: Build kernel
         working-directory: kernel/oneplus/sm8550
@@ -104,22 +91,24 @@ jobs:
         working-directory: kernel/oneplus/sm8550-modules
         run: make -C ../sm8550 M=$(pwd) O=../sm8550/out modules
 
-      - name: Package boot.img
+      - name: Package boot.img using mkbootimg.py
         working-directory: kernel/oneplus/sm8550
         run: |
           mkdir -p out/bootimg
           cp out/arch/arm64/boot/Image.gz-dtb out/bootimg/zImage-dtb
-          wget -O mkbootimg https://raw.githubusercontent.com/EmberHeart/OnePlus11KernelTools/main/mkbootimg
-          chmod +x mkbootimg
-          ./mkbootimg --kernel out/bootimg/zImage-dtb --ramdisk ramdisk/ramdisk.img --output out/boot.img
+          wget -q https://android.googlesource.com/platform/system/tools/mkbootimg/+/refs/heads/master/mkbootimg.py?format=TEXT -O mkbootimg.py.base64
+          base64 --decode mkbootimg.py.base64 > mkbootimg.py
+          chmod +x mkbootimg.py
+          python3 mkbootimg.py --kernel out/bootimg/zImage-dtb --ramdisk ramdisk/boot.img-ramdisk.cpio.gz --output out/boot.img
 
-      - name: Create AK3-style flashable zip
+      - name: Create minimal AK3 flashable zip
         working-directory: kernel/oneplus/sm8550
         run: |
           mkdir -p out/flashable-AK3/META-INF/com/google/android
           cp out/boot.img out/flashable-AK3/boot.img
-          wget -O updater-script https://raw.githubusercontent.com/EmberHeart/OnePlus11KernelTools/main/updater-script
-          mv updater-script out/flashable-AK3/META-INF/com/google/android/updater-script
+          # Minimal updater-script
+          echo "ui_print(\"Flashing OnePlus11 Kernel\");" > out/flashable-AK3/META-INF/com/google/android/updater-script
+          echo "package_extract_file(\"boot.img\", \"/boot.img\");" >> out/flashable-AK3/META-INF/com/google/android/updater-script
           cd out/flashable-AK3
           zip -r OnePlus11-Kernel-AK3.zip *
 
@@ -136,7 +125,7 @@ jobs:
         with:
           tag_name: "GKI-23.2-${{ github.run_number }}"
           name: "OnePlus11 Kernel Build #${{ github.run_number }}"
-          body: "Automated build of OnePlus 11 GKI kernel with WildKSU + SUSFS patches. Includes boot.img and AK3 zip."
+          body: "Automated OnePlus 11 GKI kernel build with WildKSU + SUSFS. Boot.img + AK3 zip."
           draft: false
           prerelease: false
           files: |
