@@ -35,9 +35,6 @@ jobs:
           git clone --depth 1 --branch lineage-23.2 https://github.com/LineageOS/android_kernel_oneplus_sm8550-devicetrees.git kernel/oneplus/sm8550-devicetrees
           git clone --depth 1 --branch lineage-23.2 https://github.com/LineageOS/android_kernel_oneplus_sm8550-modules.git kernel/oneplus/sm8550-modules
 
-      - name: Clone GKI KernelSU + SUSFS patches
-        run: git clone --depth 1 https://github.com/WildKernels/GKI_KernelSU_SUSFS.git kernel_patches
-
       - name: Detect kernel version
         id: detect_kernel
         run: |
@@ -56,24 +53,49 @@ jobs:
             echo "config.gz not found, assuming lineage_oneplus11_defconfig exists"
           fi
 
-      - name: Apply WildKSU + SUSFS patches
+      - name: Setup KernelSU-Next
         working-directory: kernel/oneplus/sm8550
         run: |
-          PATCH_DIR=../../kernel_patches
-          if [ ! -d "$PATCH_DIR" ]; then
-            echo "Error: patch folder $PATCH_DIR does not exist!"
-            exit 1
+          curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s next
+          echo "CONFIG_KSU=y" >> arch/arm64/configs/lineage_oneplus11_defconfig
+
+      - name: Clone SUSFS repo
+        run: |
+          git clone --depth 1 -b gki-android14-5.15 https://github.com/simonpunk/susfs4ksu.git susfs4ksu
+
+      - name: Apply SUSFS patches
+        working-directory: kernel/oneplus/sm8550
+        run: |
+          cp ../../susfs4ksu/kernel_patches/fs/* fs/
+          cp ../../susfs4ksu/kernel_patches/include/linux/* include/linux/
+          SUSFS_PATCH=$(ls ../../susfs4ksu/kernel_patches/*.patch 2>/dev/null | head -1)
+          if [ -n "$SUSFS_PATCH" ]; then
+            patch -p1 < "$SUSFS_PATCH" && echo "Applied $(basename $SUSFS_PATCH)"
           fi
-          touch applied_patches.txt
-          for patch in $(ls $PATCH_DIR | grep "$KERNEL_VERSION"); do
-            if ! grep -qx "$patch" applied_patches.txt; then
-              if git apply --check $PATCH_DIR/$patch; then
-                git apply $PATCH_DIR/$patch
-                echo "$patch" >> applied_patches.txt
-                echo "Applied $patch"
-              else
-                echo "Skipping $patch (check failed)"
-              fi
+          KSU_SUSFS_PATCH=$(find KernelSU-Next -name "*susfs*.patch" 2>/dev/null | head -1)
+          [ -n "$KSU_SUSFS_PATCH" ] && patch -p1 < "$KSU_SUSFS_PATCH" || true
+          cat >> arch/arm64/configs/lineage_oneplus11_defconfig << 'EOF'
+          CONFIG_KSU_SUSFS=y
+          CONFIG_KSU_SUSFS_SUS_PATH=y
+          CONFIG_KSU_SUSFS_SUS_MOUNT=y
+          CONFIG_KSU_SUSFS_SUS_KSTAT=y
+          CONFIG_KSU_SUSFS_SUS_OVERLAYFS=y
+          CONFIG_KSU_SUSFS_TRY_UMOUNT=y
+          CONFIG_KSU_SUSFS_SPOOF_UNAME=y
+          CONFIG_KSU_SUSFS_ENABLE_LOG=y
+          CONFIG_KSU_SUSFS_OPEN_REDIRECT=y
+          EOF
+
+      - name: Clone and apply WildKernels patches
+        working-directory: kernel/oneplus/sm8550
+        run: |
+          git clone --depth 1 https://github.com/WildKernels/kernel_patches.git ../../wildkernels_patches
+          for patch in ../../wildkernels_patches/*.patch; do
+            [ -f "$patch" ] || continue
+            if git apply --check "$patch" 2>/dev/null; then
+              git apply "$patch" && echo "Applied $(basename $patch)"
+            else
+              echo "Skipping $(basename $patch)"
             fi
           done
 
