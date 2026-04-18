@@ -3,7 +3,7 @@ name: OnePlus 11 GKI Kernel Auto Build + Dynamic WildKSU + AK3 + Release
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 4 * * *' # daily at 04:00 UTC
+    - cron: '0 4 * * *'
 
 jobs:
   build_gki_kernel:
@@ -66,11 +66,10 @@ jobs:
             fi
           done
 
-      - name: Download latest official LineageOS full build (OnePlus 11)
+      - name: Download official LineageOS full build (OnePlus 11)
         run: |
-          BUILD_PAGE=$(curl -s https://download.lineageos.org/oneplus11)
-          BUILD_URL=$(echo "$BUILD_PAGE" | grep -oP 'https://[^"]*lineage-23\.2-[^"]*\.zip' | head -n1)
-          echo "Downloading latest full LineageOS build: $BUILD_URL"
+          BUILD_URL="https://mirrorbits.lineageos.org/full/salami/20260417/lineage-23.2-20260417-nightly-salami-signed.zip"
+          echo "Downloading official LineageOS build: $BUILD_URL"
           wget -q $BUILD_URL -O lineage.zip
           unzip -q lineage.zip boot.img system.img
           mkdir -p kernel/oneplus/sm8550/ramdisk
@@ -114,7 +113,7 @@ jobs:
           zip -r OnePlus11-Kernel-AK3.zip *
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: OnePlus11-Kernel-Images
           path: |
