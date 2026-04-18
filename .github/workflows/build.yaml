@@ -69,7 +69,7 @@ jobs:
 
       - name: Clone SUSFS repo
         run: |
-          git clone --depth 1 -b gki-android13-5.15.202 https://gitlab.com/simonpunk/susfs4ksu.git susfs4ksu
+          git clone --depth 1 -b gki-android14-5.15 https://gitlab.com/simonpunk/susfs4ksu.git susfs4ksu
 
       - name: Apply SUSFS patches
         working-directory: kernel/oneplus/sm8550
