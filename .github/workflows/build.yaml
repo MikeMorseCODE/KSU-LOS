@@ -21,6 +21,9 @@ jobs:
       KERNEL_OUT: out
 
     steps:
+      - name: Checkout repo for anykernel.sh
+        uses: actions/checkout@v4
+
       - name: Free disk space
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/share/boost
@@ -132,9 +135,6 @@ jobs:
           fi
           make O=$KERNEL_OUT LLVM=1 LLVM_IAS=1 CLANG_TRIPLE=aarch64-linux-gnu- olddefconfig
           make -j$JOBS O=$KERNEL_OUT LLVM=1 LLVM_IAS=1 CLANG_TRIPLE=aarch64-linux-gnu- Image
-
-      - name: Checkout repo for anykernel.sh
-        uses: actions/checkout@v4
 
       - name: Package AnyKernel3 zip
         run: |
