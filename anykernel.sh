@@ -3,7 +3,6 @@
 
 properties() { '
 kernel.string=LineageOS KSU-Next+SUSFS Kernel for OnePlus 11
-kernel.name=Image
 do.devicecheck=0
 do.modules=1
 do.systemless=1
@@ -11,6 +10,8 @@ do.cleanup=1
 do.cleanuponabort=0
 device.name1=salami
 device.name2=OP5916L1
+device.name3=CPH2449
+device.name4=PHB110
 supported.versions=14
 ' ; }
 
