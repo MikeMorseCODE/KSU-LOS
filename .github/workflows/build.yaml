@@ -65,11 +65,16 @@ jobs:
           git clone --depth 1 --branch lineage-23.2 https://github.com/LineageOS/android_kernel_oneplus_sm8550-devicetrees.git kernel/oneplus/sm8550-devicetrees
           git clone --depth 1 --branch lineage-23.2 https://github.com/LineageOS/android_kernel_oneplus_sm8550-modules.git kernel/oneplus/sm8550-modules
 
+      - name: Setup KernelSU-Next
+        working-directory: kernel/oneplus/sm8550
+        run: |
+          curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s next
+
       - name: Build kernel
         working-directory: kernel/oneplus/sm8550
         run: |
           cp $GITHUB_WORKSPACE/lineage_oneplus11_defconfig arch/arm64/configs/lineage_oneplus11_defconfig
-          make O=$KERNEL_OUT LLVM=1 LLVM_IAS=1 CLANG_TRIPLE=aarch64-linux-gnu- lineage_oneplus11_defconfig
+          echo "CONFIG_KSU=y" >> arch/arm64/configs/lineage_oneplus11_defconfig
           make O=$KERNEL_OUT LLVM=1 LLVM_IAS=1 CLANG_TRIPLE=aarch64-linux-gnu- olddefconfig
           make -j$JOBS O=$KERNEL_OUT LLVM=1 LLVM_IAS=1 CLANG_TRIPLE=aarch64-linux-gnu- Image
 
