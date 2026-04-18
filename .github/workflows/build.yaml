@@ -21,6 +21,7 @@ jobs:
       DEFCONFIG: lineage_oneplus11_defconfig
       CCACHE_DIR: ${{ github.workspace }}/.ccache
       KERNEL_OUT: out
+      GIT_TERMINAL_PROMPT: 0
 
     steps:
       - name: Install dependencies
