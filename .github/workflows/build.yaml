@@ -3,7 +3,7 @@ name: OnePlus 11 GKI Kernel Build + WildKSU + SUSFS + Release
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 4 * * *'  # daily at 04:00 UTC
+    - cron: '0 4 * * *'
 
 jobs:
   build_kernel:
@@ -26,7 +26,7 @@ jobs:
           ccache -M 10G
           ccache -s
 
-      - name: Detect number of CPU cores
+      - name: Detect CPU cores
         run: echo "JOBS=$(nproc)" >> $GITHUB_ENV
 
       - name: Clone LineageOS kernel repos
@@ -35,7 +35,7 @@ jobs:
           git clone --depth 1 --branch lineage-23.2 https://github.com/LineageOS/android_kernel_oneplus_sm8550-devicetrees.git kernel/oneplus/sm8550-devicetrees
           git clone --depth 1 --branch lineage-23.2 https://github.com/LineageOS/android_kernel_oneplus_sm8550-modules.git kernel/oneplus/sm8550-modules
 
-      - name: Clone GKI KernelSU + SUSFS patches
+      - name: Clone WildKSU + SUSFS patches
         run: git clone --depth 1 https://github.com/WildKernels/GKI_KernelSU_SUSFS.git kernel_patches
 
       - name: Detect kernel version
@@ -46,9 +46,16 @@ jobs:
           echo "Kernel version: $KVER.$KPATCH"
           echo "KERNEL_VERSION=$KVER.$KPATCH" >> $GITHUB_ENV
 
-      - name: Decompress config.gz to defconfig
-        working-directory: kernel/oneplus/sm8550/arch/arm64/configs
-        run: gunzip -c config.gz > lineage_oneplus11_defconfig
+      - name: Decompress config.gz if it exists
+        run: |
+          CONFIG_PATH=kernel/oneplus/sm8550/arch/arm64/configs/config.gz
+          DEFCONFIG_PATH=kernel/oneplus/sm8550/arch/arm64/configs/lineage_oneplus11_defconfig
+          if [ -f "$CONFIG_PATH" ]; then
+            echo "Decompressing config.gz to defconfig..."
+            gunzip -c "$CONFIG_PATH" > "$DEFCONFIG_PATH"
+          else
+            echo "config.gz not found, assuming lineage_oneplus11_defconfig exists"
+          fi
 
       - name: Apply WildKSU + SUSFS patches
         working-directory: kernel/oneplus/sm8550
@@ -71,7 +78,7 @@ jobs:
             fi
           done
 
-      - name: Download official LineageOS full build
+      - name: Download LineageOS full build
         run: |
           BUILD_URL="https://mirrorbits.lineageos.org/full/salami/20260417/lineage-23.2-20260417-nightly-salami-signed.zip"
           wget -q $BUILD_URL -O lineage.zip
@@ -87,7 +94,7 @@ jobs:
         working-directory: kernel/oneplus/sm8550/ramdisk
         run: ../extract_ramdisk.sh ../../boot.img
 
-      - name: Build kernel using defconfig
+      - name: Build kernel
         working-directory: kernel/oneplus/sm8550
         run: |
           make O=out lineage_oneplus11_defconfig
