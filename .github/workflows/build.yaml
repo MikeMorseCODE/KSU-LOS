@@ -7,7 +7,7 @@ on:
 
 jobs:
   build_gki_kernel:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     env:
       ARCH: arm64
       CROSS_COMPILE: aarch64-linux-gnu-
@@ -33,7 +33,7 @@ jobs:
           git clone --depth 1 --branch lineage-23.2 https://github.com/LineageOS/android_kernel_oneplus_sm8550-devicetrees.git kernel/oneplus/sm8550-devicetrees
           git clone --depth 1 --branch lineage-23.2 https://github.com/LineageOS/android_kernel_oneplus_sm8550-modules.git kernel/oneplus/sm8550-modules
 
-      - name: Clone WildKernels patch repo (latest)
+      - name: Clone WildKernels patch repo
         run: git clone --depth 1 https://github.com/WildKernels/kernel_patches.git kernel_patches
 
       - name: Detect kernel version
@@ -49,7 +49,6 @@ jobs:
         run: |
           PATCH_DIR=../../kernel_patches/wild
           echo "Applying patches for kernel $KERNEL_VERSION..."
-          # Track applied patches
           touch applied_patches.txt
           for patch in $(ls $PATCH_DIR | grep "$KERNEL_VERSION"); do
             if grep -qx "$patch" applied_patches.txt; then
@@ -65,11 +64,11 @@ jobs:
             fi
           done
 
-      - name: Download latest official LineageOS build (OnePlus 11)
+      - name: Download latest official LineageOS full build (OnePlus 11)
         run: |
           BUILD_PAGE=$(curl -s https://download.lineageos.org/oneplus11)
-          BUILD_URL=$(echo "$BUILD_PAGE" | grep -oP 'https://.*?zip' | head -n1)
-          echo "Downloading latest LineageOS build: $BUILD_URL"
+          BUILD_URL=$(echo "$BUILD_PAGE" | grep -oP 'https://[^"]*lineage-23\.2-[^"]*\.zip' | head -n1)
+          echo "Downloading latest full LineageOS build: $BUILD_URL"
           wget -q $BUILD_URL -O lineage.zip
           unzip -q lineage.zip boot.img system.img
           mkdir -p kernel/oneplus/sm8550/ramdisk
