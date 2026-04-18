@@ -130,7 +130,7 @@ jobs:
 
       - name: Extract ramdisk using abootimg
         working-directory: kernel/oneplus/sm8550/ramdisk
-        run: abootimg -x ../../../boot.img
+        run: abootimg -x ../../../../boot.img
 
       - name: Build kernel
         working-directory: kernel/oneplus/sm8550
