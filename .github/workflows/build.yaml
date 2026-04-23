@@ -28,11 +28,15 @@ jobs:
         run: git config --global url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
 
       - name: Install dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y git curl unzip build-essential libncurses-dev bc flex bison libssl-dev python3 python3-pip python3-distutils ccache wget
-
-      - name: Clone Device Trees
+  run: |
+    sudo apt update
+    sudo apt install -y \
+      git curl unzip build-essential \
+      libncurses-dev bc flex bison libssl-dev \
+      python3 python3-pip python3-setuptools python3.11-distutils \
+      ccache wget zip
+      
+- name: Clone Device Trees
         run: |
           git clone https://github.com/MikeMorseCODE/android_device_oneplus_sm8550-common.git kernel/oneplus/sm8550-devicetrees
           git clone https://github.com/MikeMorseCODE/android_device_oneplus_sm8550.git kernel/oneplus/sm8550-devicetrees/oneplus11
