@@ -85,7 +85,7 @@ jobs:
           zip -r AnyKernel3.zip * 
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: AnyKernel3
           path: kernel/oneplus/sm8550/out/AnyKernel3.zip
