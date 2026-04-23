@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       lineage_build_url:
-        description: 'Optional: LineageOS build URL (not used, for compat)'
+        description: 'Optional: LineageOS build URL'
         required: false
         type: string
   schedule:
@@ -22,88 +22,43 @@ jobs:
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: Configure git auth
         run: git config --global url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
 
       - name: Install dependencies
-  run: |
-    sudo apt update
-    sudo apt install -y \
-      git curl unzip build-essential \
-      libncurses-dev bc flex bison libssl-dev \
-      python3 python3-pip python3-setuptools python3.11-distutils \
-      ccache wget zip
-      
-- name: Clone Device Trees
         run: |
-          git clone https://github.com/MikeMorseCODE/android_device_oneplus_sm8550-common.git kernel/oneplus/sm8550-devicetrees
-          git clone https://github.com/MikeMorseCODE/android_device_oneplus_sm8550.git kernel/oneplus/sm8550-devicetrees/oneplus11
+          sudo apt update
+          sudo apt install -y git curl unzip build-essential \
+            libncurses-dev bc flex bison libssl-dev \
+            python3 python3-pip python3-setuptools python3.11-distutils \
+            ccache wget zip
 
-      - name: Detect kernel version
-        id: detect_kernel
+      - name: Clone LineageOS kernel repos
         run: |
-          KVER=$(grep "^VERSION =" kernel/oneplus/sm8550/Makefile | awk '{print $3}')
-          echo "KERNEL_VERSION=$KVER" >> $GITHUB_ENV
+          git clone -b lineage-23.2 https://github.com/LineageOS/android_kernel_oneplus_sm8550-common.git kernel/oneplus/sm8550
+          git clone -b lineage-23.2 https://github.com/LineageOS/android_device_oneplus_sm8550-common.git kernel/oneplus/sm8550-devicetrees
 
       - name: Patch live defconfig for GKI
         run: |
-          if [ ! -f arch/arm64/configs/${DEFCONFIG} ]; then
-            echo "${DEFCONFIG} missing!"
+          if [ ! -f ../../lineage_oneplus11_defconfig ]; then
+            echo "lineage_oneplus11_defconfig missing!"
             exit 1
           fi
-          cp ../../${DEFCONFIG} arch/arm64/configs/
-          echo "# CONFIG_OPLUS_SENSOR_DEVINFO is not set" >> arch/arm64/configs/${DEFCONFIG}
-          echo "# CONFIG_OPLUS_FEATURE_SENSOR_CFG is not set" >> arch/arm64/configs/${DEFCONFIG}
-          echo "Patched ${DEFCONFIG} to disable Oplus sensors"
+          cp ../../lineage_oneplus11_defconfig arch/arm64/configs/
+          echo "# CONFIG_OPLUS_SENSOR_DEVINFO is not set" >> arch/arm64/configs/lineage_oneplus11_defconfig
+          echo "# CONFIG_OPLUS_FEATURE_SENSOR_CFG is not set" >> arch/arm64/configs/lineage_oneplus11_defconfig
+          echo "Patched lineage_oneplus11_defconfig to disable Oplus sensors"
 
       - name: Setup KernelSU-Next
-        run: |
-          # Add your KernelSU setup commands here
-          echo "KernelSU-Next setup placeholder"
-
-      - name: Clone SUSFS repo
-        run: |
-          git clone https://github.com/WildKernels/SUSFS.git kernel/susfs
+        run: ./scripts/setup_ksu.sh
 
       - name: Apply SUSFS patches
-        run: |
-          # Add patch commands for SUSFS here
-          echo "SUSFS patch placeholder"
+        run: ./scripts/apply_susfs.sh
 
       - name: Apply WildKernels patches
-        run: |
-          # Add WildKernels patch commands here
-          echo "WildKernels patch placeholder"
+        run: ./scripts/apply_wildkernels.sh
 
       - name: Build kernel
-        run: |
-          make O=$KERNEL_OUT ${DEFCONFIG}
-          make -j$(nproc) O=$KERNEL_OUT
-
-      - name: Compile modules
-        run: |
-          make modules -j$(nproc) O=$KERNEL_OUT
-
-      - name: Checkout AnyKernel3 repo
-        run: |
-          git clone https://github.com/yourusername/AnyKernel3.git AnyKernel3
-
-      - name: Package AnyKernel3 zip
-        run: |
-          # Copy kernel image & modules to AnyKernel3 folder
-          # Create flashable zip
-          echo "Packaging AnyKernel3 zip placeholder"
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: AnyKernel3-flashable
-          path: AnyKernel3/
-
-      - name: Create GitHub release
-        uses: ncipollo/release-action@v1
-        with:
-          tag: v${{ env.KERNEL_VERSION }}
-          artifacts: AnyKernel3/
+        run: make -j$(nproc) O=$KERNEL_OUT $DEFCONFIG && make -j$(n
