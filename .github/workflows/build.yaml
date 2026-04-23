@@ -97,7 +97,7 @@ jobs:
           zip -r ../KSU-LOS-OnePlus11.zip .
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: KSU-LOS-OnePlus11
           path: kernel/oneplus/KSU-LOS-OnePlus11.zip
