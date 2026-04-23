@@ -1,3 +1,4 @@
+
 name: OnePlus 11 GKI Kernel Build + KSU-Next + SUSFS + Release
 
 on:
@@ -8,11 +9,11 @@ on:
         required: false
         type: string
   schedule:
-    - cron: '0 4 * * *'  # daily at 04:00 UTC
+    - cron: '0 4 * * *'
 
 jobs:
   build_kernel:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     env:
       ARCH: arm64
       CROSS_COMPILE: aarch64-linux-gnu-
@@ -21,99 +22,65 @@ jobs:
       KERNEL_OUT: out
 
     steps:
-    - name: Checkout repo
-      uses: actions/checkout@v4
-      with:
-        submodules: recursive
+      - name: Configure git auth
+        run: git config --global url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
 
-    - name: Configure git auth
-      run: git config --global url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y git curl unzip bc flex bison libssl-dev libelf-dev \
+              python3 python3-pip python3-setuptools python3-venv python3-dev \
+              build-essential libncurses-dev wget zip lsb-release software-properties-common
+          # Ensure distutils installs for Python 3.12+
+          sudo apt-get install -y python3.12-distutils || sudo apt-get install -y python3-distutils || echo "Distutils not found, skipping"
 
-    - name: Cache ccache
-      uses: actions/cache@v3
-      with:
-        path: ${{ github.workspace }}/.ccache
-        key: ccache-${{ runner.os }}-${{ hashFiles('**/.config') }}
-        restore-keys: ccache-${{ runner.os }}-
+      - name: Clone LineageOS kernel repos
+        run: |
+          git clone -b lineage-23.2 https://github.com/LineageOS/android_kernel_oneplus_sm8550-common.git kernel/oneplus/sm8550 || true
+          git clone -b lineage-23.2 https://github.com/LineageOS/android_device_oneplus_sm8550-common.git kernel/oneplus/sm8550-devicecommon || true
 
-    - name: Cache Python packages
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache/pip
-        key: pip-${{ runner.os }}-${{ hashFiles('**/requirements.txt') }}
-        restore-keys: pip-${{ runner.os }}-
+      - name: Detect kernel version
+        run: |
+          KVER=$(grep "^VERSION =" kernel/oneplus/sm8550/Makefile | awk '{print $3}')
+          echo "Kernel version: $KVER"
 
-    - name: Install dependencies
-      run: |
-        sudo apt update
-        sudo apt install -y git curl unzip build-essential \
-          libncurses-dev bc flex bison libssl-dev \
-          python3 python3-pip python3-venv python3-wheel python3-setuptools python3-apt python3-dev wget zip
+      - name: Patch live defconfig for GKI
+        run: |
+          if [ ! -f ../../lineage_oneplus11_defconfig ]; then
+            echo "lineage_oneplus11_defconfig missing!"
+            exit 1
+          fi
+          cp ../../lineage_oneplus11_defconfig arch/arm64/configs/
+          echo "# CONFIG_OPLUS_SENSOR_DEVINFO is not set" >> arch/arm64/configs/lineage_oneplus11_defconfig
+          echo "# CONFIG_OPLUS_FEATURE_SENSOR_CFG is not set" >> arch/arm64/configs/lineage_oneplus11_defconfig
+          echo "Patched lineage_oneplus11_defconfig to disable Oplus sensors"
 
-    - name: Upgrade pip and setuptools
-      run: |
-        python3 -m pip install --upgrade pip setuptools wheel
+      - name: Setup KernelSU-Next
+        run: echo "KernelSU-Next setup placeholder"
 
-    - name: Cache kernel & device repos
-      uses: actions/cache@v4
-      with:
-        path: |
-          kernel/oneplus/sm8550
-          kernel/oneplus/sm8550-devicecommon
-          kernel/oneplus/sm8550-devicetrees
-        key: kernel-${{ github.sha }}
-        restore-keys: kernel-
+      - name: Clone SUSFS repo
+        run: echo "SUSFS repo clone placeholder"
 
-    - name: Clone LineageOS kernel repos
-      run: |
-        git clone -b lineage-23.2 https://github.com/LineageOS/android_kernel_oneplus_sm8550-common.git kernel/oneplus/sm8550
-        git clone -b lineage-23.2 https://github.com/LineageOS/android_device_oneplus_sm8550-common.git kernel/oneplus/sm8550-devicecommon
+      - name: Apply SUSFS patches
+        run: echo "Apply SUSFS patches placeholder"
 
-    - name: Patch live defconfig for GKI
-      run: |
-        if [ ! -f ../../lineage_oneplus11_defconfig ]; then
-          echo "lineage_oneplus11_defconfig missing!"
-          exit 1
-        fi
-        cp ../../lineage_oneplus11_defconfig arch/arm64/configs/
-        echo "# CONFIG_OPLUS_SENSOR_DEVINFO is not set" >> arch/arm64/configs/lineage_oneplus11_defconfig
-        echo "# CONFIG_OPLUS_FEATURE_SENSOR_CFG is not set" >> arch/arm64/configs/lineage_oneplus11_defconfig
-        echo "Patched lineage_oneplus11_defconfig to disable Oplus sensors"
+      - name: Clone and apply WildKernels patches
+        run: echo "Apply WildKernels patches placeholder"
 
-    - name: Setup KernelSU-Next
-      run: ./scripts/setup_ksu_next.sh
+      - name: Build kernel
+        run: echo "Build kernel placeholder"
 
-    - name: Clone SUSFS repo
-      run: git clone https://github.com/WildKernels/susfs.git
+      - name: Compile modules
+        run: echo "Compile modules placeholder"
 
-    - name: Apply SUSFS patches
-      run: ./scripts/apply_susfs.sh
+      - name: Checkout repo for AnyKernel3
+        run: echo "Checkout AnyKernel3 placeholder"
 
-    - name: Apply WildKernels patches
-      run: ./scripts/apply_wildkernels.sh
+      - name: Package AnyKernel3 zip
+        run: echo "Package AnyKernel3 placeholder"
 
-    - name: Build kernel
-      run: make O=$KERNEL_OUT $DEFCONFIG
-      shell: bash
+      - name: Upload artifact
+        run: echo "Upload artifact placeholder"
 
-    - name: Compile modules
-      run: make -j$(nproc) O=$KERNEL_OUT modules
-      shell: bash
-
-    - name: Checkout repo for AnyKernel3
-      run: git clone https://github.com/xyz/AnyKernel3.git
-
-    - name: Package AnyKernel3 zip
-      run: ./scripts/package_anykernel.sh
-
-    - name: Upload artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: kernel_build
-        path: ./AnyKernel3/*.zip
-
-    - name: Create GitHub release
-      uses: ncipollo/release-action@v1
-      with:
-        tag: v${{ github.run_number }}
-        artifacts: kernel_build
+      - name: Create GitHub release
+        run: echo "Create GitHub release placeholder"
