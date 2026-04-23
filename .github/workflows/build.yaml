@@ -1,4 +1,4 @@
-name: OnePlus 11 GKI Kernel Build + KSU-Next + SUSFS + WildKernels + Release
+name: OnePlus 11 GKI Kernel Build + KSU-Next + SUSFS + Release
 
 on:
   workflow_dispatch:
@@ -51,17 +51,16 @@ jobs:
           echo "KERNEL_VERSION=$KVER.$KPATCH" >> $GITHUB_ENV
 
       - name: Patch live defconfig for GKI
-  working-directory: kernel/oneplus/sm8550
-  run: |
-    if [ ! -f "../../lineage_oneplus11_defconfig" ]; then
-      echo "lineage_oneplus11_defconfig missing!"
-      exit 1
-    fi
-    cp ../../lineage_oneplus11_defconfig arch/arm64/configs/
-    # Disable Oplus sensor modules
-    echo "# CONFIG_OPLUS_SENSOR_DEVINFO is not set" >> arch/arm64/configs/lineage_oneplus11_defconfig
-    echo "# CONFIG_OPLUS_FEATURE_SENSOR_CFG is not set" >> arch/arm64/configs/lineage_oneplus11_defconfig
-    echo "Patched lineage_oneplus11_defconfig to disable Oplus sensors"
+        working-directory: kernel/oneplus/sm8550
+        run: |
+          if [ ! -f ../../lineage_oneplus11_defconfig ]; then
+            echo "lineage_oneplus11_defconfig missing!"
+            exit 1
+          fi
+          cp ../../lineage_oneplus11_defconfig arch/arm64/configs/
+          echo "# CONFIG_OPLUS_SENSOR_DEVINFO is not set" >> arch/arm64/configs/lineage_oneplus11_defconfig
+          echo "# CONFIG_OPLUS_FEATURE_SENSOR_CFG is not set" >> arch/arm64/configs/lineage_oneplus11_defconfig
+          echo "Patched lineage_oneplus11_defconfig to disable Oplus sensors"
 
       - name: Setup KernelSU-Next
         working-directory: kernel/oneplus/sm8550
@@ -75,22 +74,32 @@ jobs:
       - name: Apply SUSFS patches
         working-directory: kernel/oneplus/sm8550
         run: |
-          cp ../../../susfs4ksu/kernel_patches/fs/* fs/ 2>/dev/null || true
-          cp ../../../susfs4ksu/kernel_patches/include/linux/* include/linux/ 2>/dev/null || true
+          cp ../../../susfs4ksu/kernel_patches/fs/* fs/
+          cp ../../../susfs4ksu/kernel_patches/include/linux/* include/linux/
           SUSFS_PATCH=$(ls ../../../susfs4ksu/kernel_patches/*.patch 2>/dev/null | head -1)
-          [ -n "$SUSFS_PATCH" ] && patch -p1 < "$SUSFS_PATCH" || true
+          [ -n "$SUSFS_PATCH" ] && patch -p1 < "$SUSFS_PATCH"
+          KSU_SUSFS_PATCH=$(find KernelSU-Next -name "*susfs*.patch" 2>/dev/null | head -1)
+          [ -n "$KSU_SUSFS_PATCH" ] && patch -p1 < "$KSU_SUSFS_PATCH"
+          printf '%s\n' \
+            'CONFIG_KSU_SUSFS=y' \
+            'CONFIG_KSU_SUSFS_SUS_PATH=y' \
+            'CONFIG_KSU_SUSFS_SUS_MOUNT=y' \
+            'CONFIG_KSU_SUSFS_SUS_KSTAT=y' \
+            'CONFIG_KSU_SUSFS_SUS_OVERLAYFS=y' \
+            'CONFIG_KSU_SUSFS_TRY_UMOUNT=y' \
+            'CONFIG_KSU_SUSFS_SPOOF_UNAME=y' \
+            'CONFIG_KSU_SUSFS_ENABLE_LOG=y' \
+            'CONFIG_KSU_SUSFS_OPEN_REDIRECT=y' \
+            'CONFIG_QCOM_SMEM=y' \
+            >> arch/arm64/configs/lineage_oneplus11_defconfig
 
-      - name: Apply WildKernels patches
+      - name: Clone and apply WildKernels patches
         working-directory: kernel/oneplus/sm8550
         run: |
           git clone --depth 1 https://github.com/WildKernels/kernel_patches.git ../../../wildkernels_patches
           for patch in ../../../wildkernels_patches/*.patch; do
             [ -f "$patch" ] || continue
-            if git apply --check "$patch" 2>/dev/null; then
-              git apply "$patch" && echo "Applied $(basename $patch)"
-            else
-              echo "Skipping $(basename $patch)"
-            fi
+            git apply --check "$patch" 2>/dev/null && git apply "$patch" && echo "Applied $(basename $patch)" || echo "Skipped $(basename $patch)"
           done
 
       - name: Build kernel
@@ -125,7 +134,7 @@ jobs:
         with:
           tag_name: "GKI-23.2-${{ github.run_number }}"
           name: "OnePlus11 Kernel Build #${{ github.run_number }}"
-          body: "Automated OnePlus 11 GKI kernel build with KernelSU-Next + SUSFS + WildKernels. Flash via TWRP/AnyKernel3."
+          body: "Automated OnePlus 11 GKI kernel build with KernelSU-Next + SUSFS. Flash via TWRP/recovery."
           draft: false
           prerelease: false
           files: OnePlus11-KSU-SUSFS-AK3.zip
