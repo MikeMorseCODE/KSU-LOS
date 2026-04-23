@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       lineage_build_url:
-        description: 'Optional: LineageOS build URL (compat only)'
+        description: 'Optional: LineageOS build URL (not used, kept for compat)'
         required: false
         type: string
   schedule:
@@ -16,7 +16,7 @@ jobs:
     env:
       ARCH: arm64
       CROSS_COMPILE: aarch64-linux-gnu-
-      DEFCONFIG: kernel/oneplus/sm8550/arch/arm64/configs/lineage_oneplus11_defconfig
+      DEFCONFIG: lineage_oneplus11_defconfig
       CCACHE_DIR: ${{ github.workspace }}/.ccache
       KERNEL_OUT: out
 
@@ -44,14 +44,12 @@ jobs:
           git clone --depth 1 --branch lineage-23.2 https://github.com/LineageOS/android_kernel_oneplus_sm8550-modules.git kernel/oneplus/sm8550-modules
           ln -sfn ../sm8550-modules kernel/oneplus/sm8550-modules
 
-                ln -sfn ../sm8550-modules kernel/oneplus/sm8550-modules
-
       - name: Pull live defconfig
         run: |
-          if [ -f "$DEFCONFIG" ]; then
-            echo "Using existing live defconfig: $DEFCONFIG"
+          if [ -f "kernel/oneplus/sm8550/arch/arm64/configs/lineage_oneplus11_defconfig" ]; then
+            echo "Using live defconfig: lineage_oneplus11_defconfig"
           else
-            echo "Error: live defconfig not found!"
+            echo "Error: lineage_oneplus11_defconfig not found!"
             exit 1
           fi
 
@@ -64,15 +62,11 @@ jobs:
       - name: Clone SUSFS repo
         run: git clone --depth 1 -b gki-android14-5.15 https://gitlab.com/simonpunk/susfs4ksu.git susfs4ksu
 
-      - name: Apply SUSFS patches
+      - name: Apply SUSFS safe subset
         working-directory: kernel/oneplus/sm8550
         run: |
-          cp ../../susfs4ksu/kernel_patches/fs/* fs/ || true
-          cp ../../susfs4ksu/kernel_patches/include/linux/* include/linux/ || true
-          SUSFS_PATCH=$(ls ../../susfs4ksu/kernel_patches/*.patch 2>/dev/null | head -1)
-          [ -n "$SUSFS_PATCH" ] && patch -p1 < "$SUSFS_PATCH" || true
-          KSU_SUSFS_PATCH=$(find KernelSU-Next -name "*susfs*.patch" 2>/dev/null | head -1)
-          [ -n "$KSU_SUSFS_PATCH" ] && patch -p1 < "$KSU_SUSFS_PATCH" || true
+          cp ../../../susfs4ksu/kernel_patches/fs/* fs/ 2>/dev/null || true
+          cp ../../../susfs4ksu/kernel_patches/include/linux/* include/linux/ 2>/dev/null || true
           printf '%s\n' \
             'CONFIG_KSU_SUSFS=y' \
             'CONFIG_KSU_SUSFS_SUS_PATH=y' \
@@ -85,7 +79,7 @@ jobs:
             'CONFIG_KSU_SUSFS_OPEN_REDIRECT=y' \
             >> arch/arm64/configs/lineage_oneplus11_defconfig
 
-      - name: Apply WildKernels patches
+      - name: Apply WildKernels patches safely
         working-directory: kernel/oneplus/sm8550
         run: |
           git clone --depth 1 https://github.com/WildKernels/kernel_patches.git ../../../wildkernels_patches
@@ -119,7 +113,7 @@ jobs:
           cd AnyKernel3
           zip -r9 ../OnePlus11-KSU-SUSFS-AK3.zip * -x ".git/*" -x "README.md"
 
-      - name: Upload artifact
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: OnePlus11-Kernel
