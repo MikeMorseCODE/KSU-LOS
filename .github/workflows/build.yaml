@@ -49,7 +49,6 @@ jobs:
           git clone --depth 1 -b gki-android14-5.15 https://gitlab.com/simonpunk/susfs4ksu.git ../../../susfs4ksu
           cp -r ../../../susfs4ksu/kernel_patches/fs/* fs/
           cp -r ../../../susfs4ksu/kernel_patches/include/linux/* include/linux/
-          # Skip patches referencing kernel/* or feature/runtime files
 
       - name: Apply WildKernels patches safely
         working-directory: kernel/oneplus/sm8550
