@@ -4,107 +4,107 @@ on:
   workflow_dispatch:
     inputs:
       lineage_build_url:
-        description: 'Optional: LineageOS build URL (not used, kept for compat)'
+        description: 'Optional: LineageOS build URL (not used, for compat)'
         required: false
         type: string
   schedule:
-    - cron: '0 4 * * *'
+    - cron: '0 4 * * *'  # Optional daily schedule at 04:00 UTC
 
 jobs:
   build_kernel:
     runs-on: ubuntu-latest
+
     env:
       ARCH: arm64
       CROSS_COMPILE: aarch64-linux-gnu-
       DEFCONFIG: lineage_oneplus11_defconfig
       CCACHE_DIR: ${{ github.workspace }}/.ccache
       KERNEL_OUT: out
-      JOBS: 4
+
     steps:
-      - name: Checkout repo
+      - name: Checkout repository
         uses: actions/checkout@v3
         with:
-          submodules: true
+          submodules: recursive
 
-      - name: Configure git auth
-        run: git config --global url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+      - name: Configure Git auth
+        run: |
+          git config --global url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
 
       - name: Install dependencies
-  run: |
-    sudo apt-get update
-    sudo apt-get install -y bc bison build-essential curl flex libncurses5-dev libssl-dev wget zip ccache
-    sudo apt-get install -y python3 python3-apt python3-setuptools python3-pip
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc bison build-essential curl flex libncurses5-dev libssl-dev wget zip ccache
+          sudo apt-get install -y python3 python3-apt python3-setuptools python3-pip
+
       - name: Clone LineageOS kernel repos
         run: |
-          git clone https://github.com/LineageOS/android_kernel_oneplus_sm8550 kernel/oneplus/sm8550 --depth=1
-          git clone https://github.com/LineageOS/android_device_oneplus_sm8550-devicetrees kernel/oneplus/sm8550-devicetrees --depth=1
-          git clone https://github.com/LineageOS/android_kernel_oneplus_sm8550-modules kernel/oneplus/sm8550-modules --depth=1
+          git clone https://github.com/LineageOS/android_kernel_oneplus_sm8550 kernel/oneplus/sm8550 -b lineage-23.2
+          git clone https://github.com/LineageOS/android_device_oneplus_sm8550-devicetrees kernel/oneplus/sm8550-devicetrees
+          git clone https://github.com/LineageOS/android_kernel_oneplus_sm8550-modules kernel/oneplus/sm8550-modules
 
       - name: Detect kernel version
         run: |
           KVER=$(grep "^VERSION =" kernel/oneplus/sm8550/Makefile | awk '{print $3}')
-          echo "Kernel version detected: $KVER"
+          echo "Kernel version: $KVER"
 
       - name: Patch live defconfig for GKI
         run: |
-          if [ ! -f kernel/oneplus/sm8550/arch/arm64/configs/lineage_oneplus11_defconfig ]; then
-            echo "lineage_oneplus11_defconfig missing!"
+          if [ ! -f ${{ env.DEFCONFIG }} ]; then
+            echo "${{ env.DEFCONFIG }} missing!"
             exit 1
           fi
-          cp kernel/oneplus/sm8550/arch/arm64/configs/lineage_oneplus11_defconfig kernel/oneplus/sm8550/arch/arm64/configs/
-          echo "# CONFIG_OPLUS_SENSOR_DEVINFO is not set" >> kernel/oneplus/sm8550/arch/arm64/configs/lineage_oneplus11_defconfig
-          echo "# CONFIG_OPLUS_FEATURE_SENSOR_CFG is not set" >> kernel/oneplus/sm8550/arch/arm64/configs/lineage_oneplus11_defconfig
-          echo "Patched lineage_oneplus11_defconfig to disable Oplus sensors"
+          cp ${{ env.DEFCONFIG }} arch/arm64/configs/
+          echo "# CONFIG_OPLUS_SENSOR_DEVINFO is not set" >> arch/arm64/configs/${{ env.DEFCONFIG }}
+          echo "# CONFIG_OPLUS_FEATURE_SENSOR_CFG is not set" >> arch/arm64/configs/${{ env.DEFCONFIG }}
+          echo "Patched ${ { env.DEFCONFIG } } to disable Oplus sensors"
 
       - name: Setup KernelSU-Next
         run: |
-          git clone --depth 1 -b gki-android14-5.15 https://gitlab.com/simonpunk/susfs4ksu.git kernel/oneplus/sm8550-susfs
-          cd kernel/oneplus/sm8550-susfs
-          ./apply.sh  # Replace with actual KernelSU-Next setup commands if needed
-
-      - name: Clone SUSFS repo
-        run: git clone https://github.com/WildKernels/SUSFS.git kernel/oneplus/sm8550-susfs-repo
-
+          git clone https://github.com/WildKernels/SUSFS.git kernel/oneplus/sm8550/SUSFS
+          # Apply KSU patches here if needed
+          
       - name: Apply SUSFS patches
         run: |
-          cd kernel/oneplus/sm8550
-          ./apply_susfs.sh  # Replace with your actual patch command
+          cd kernel/oneplus/sm8550/SUSFS
+          ./apply-patches.sh  # Replace with your actual patch script
 
-      - name: Clone and apply WildKernels patches
+      - name: Apply WildKernels patches
         run: |
-          git clone https://github.com/WildKernels/kernel_patches.git kernel/oneplus/sm8550-wild
-          cd kernel/oneplus/sm8550-wild
-          ./apply_wild.sh  # Replace with actual WildK patch command
+          cd kernel/oneplus/sm8550
+          ./apply-wildkernels.sh  # Replace with actual patch commands
 
       - name: Build kernel
         run: |
           cd kernel/oneplus/sm8550
-          make O=$KERNEL_OUT $DEFCONFIG
-          make -j$JOBS O=$KERNEL_OUT
+          make O=${{ env.KERNEL_OUT }} ARCH=${{ env.ARCH }} ${ { env.DEFCONFIG } }
+          make -j$(nproc) O=${{ env.KERNEL_OUT }} ARCH=${{ env.ARCH }}
 
       - name: Compile modules
         run: |
-          cd kernel/oneplus/sm8550
-          make modules -j$JOBS O=$KERNEL_OUT
+          make modules -j$(nproc) O=${{ env.KERNEL_OUT }}
 
-      - name: Checkout repo for AnyKernel3
-        run: git clone https://github.com/osm0sis/AnyKernel3.git kernel/oneplus/AnyKernel3
+      - name: Checkout AnyKernel3
+        run: |
+          git clone https://github.com/AnyKernel/AnyKernel3.git kernel/AnyKernel3
 
       - name: Package AnyKernel3 zip
         run: |
-          cp kernel/oneplus/sm8550/out/arch/arm64/boot/Image.gz-dtb kernel/oneplus/AnyKernel3/
-          cd kernel/oneplus/AnyKernel3
-          zip -r ../KSU-LOS-OnePlus11.zip .
+          cp ${{ env.KERNEL_OUT }}/Image.gz-dtb kernel/AnyKernel3/
+          cd kernel/AnyKernel3
+          zip -r ../AnyKernel3-OP11.zip .
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: KSU-LOS-OnePlus11
-          path: kernel/oneplus/KSU-LOS-OnePlus11.zip
+          name: AnyKernel3-OP11
+          path: AnyKernel3-OP11.zip
 
       - name: Create GitHub release
         uses: ncipollo/release-action@v1
         with:
-          tag: "v1-${{ github.run_number }}"
-          name: "KSU-LOS-OnePlus11-${{ github.run_number }}"
-          artifacts: KSU-LOS-OnePlus11.zip
+          tag: kernel-build-${{ github.run_number }}
+          release_name: "OnePlus 11 Kernel Build #${{ github.run_number }}"
+          artifacts: AnyKernel3-OP11.zip
+          draft: false
+          prerelease: false
