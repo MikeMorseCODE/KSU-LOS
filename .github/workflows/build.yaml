@@ -47,7 +47,7 @@ jobs:
       - name: Pull live defconfig
         run: |
           if [ -f "$DEFCONFIG" ]; then
-            echo "Using existing live defconfig: $DEFCONFIG"
+            echo "Using existing live defconfig: "lineage_oneplus11_defconfig"
           else
             echo "Error: live defconfig not found!"
             exit 1
