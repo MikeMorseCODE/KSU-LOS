@@ -14,7 +14,6 @@ jobs:
       DEFCONFIG: lineage_oneplus11_defconfig
       CCACHE_DIR: ${{ github.workspace }}/.ccache
       KERNEL_OUT: out
-      JOBS: ${{ runner.cpus }}
 
     steps:
       - name: Install dependencies
@@ -26,6 +25,9 @@ jobs:
         run: |
           mkdir -p $CCACHE_DIR
           ccache -M 10G
+
+      - name: Detect CPU cores
+        run: echo "JOBS=$(nproc)" >> $GITHUB_ENV
 
       - name: Clone LineageOS kernel repos
         run: |
