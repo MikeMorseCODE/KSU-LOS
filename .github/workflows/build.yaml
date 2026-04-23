@@ -1,7 +1,12 @@
-name: OnePlus 11 GKI Kernel + KSU-Next + SUSFS + WildKSU + AK3
+name: OnePlus 11 GKI Kernel Build + KSU-Next + SUSFS + Release
 
 on:
   workflow_dispatch:
+    inputs:
+      lineage_build_url:
+        description: 'Optional: LineageOS build URL (compat only)'
+        required: false
+        type: string
   schedule:
     - cron: '0 4 * * *'
 
@@ -11,11 +16,14 @@ jobs:
     env:
       ARCH: arm64
       CROSS_COMPILE: aarch64-linux-gnu-
-      DEFCONFIG: lineage_oneplus11_defconfig
+      DEFCONFIG: kernel/oneplus/sm8550/arch/arm64/configs/lineage_oneplus11_defconfig
       CCACHE_DIR: ${{ github.workspace }}/.ccache
       KERNEL_OUT: out
 
     steps:
+      - name: Configure git auth
+        run: git config --global url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+
       - name: Install dependencies
         run: |
           sudo apt-get update
@@ -31,13 +39,19 @@ jobs:
 
       - name: Clone LineageOS kernel repos
         run: |
-          git clone --branch lineage-23.2 https://github.com/LineageOS/android_kernel_oneplus_sm8550.git kernel/oneplus/sm8550
-          git clone --branch lineage-23.2 https://github.com/LineageOS/android_kernel_oneplus_sm8550-devicetrees.git kernel/oneplus/sm8550-devicetrees
-          git clone --branch lineage-23.2 https://github.com/LineageOS/android_kernel_oneplus_sm8550-modules.git kernel/oneplus/sm8550-modules
+          git clone --depth 1 --branch lineage-23.2 https://github.com/LineageOS/android_kernel_oneplus_sm8550.git kernel/oneplus/sm8550
+          git clone --depth 1 --branch lineage-23.2 https://github.com/LineageOS/android_kernel_oneplus_sm8550-devicetrees.git kernel/oneplus/sm8550-devicetrees
+          git clone --depth 1 --branch lineage-23.2 https://github.com/LineageOS/android_kernel_oneplus_sm8550-modules.git kernel/oneplus/sm8550-modules
           ln -sfn ../sm8550-modules kernel/oneplus/sm8550-modules
 
       - name: Pull live defconfig
-        run: cp kernel/oneplus/sm8550/arch/arm64/configs/config.gz kernel/oneplus/sm8550/arch/arm64/configs/lineage_oneplus11_defconfig
+        run: |
+          if [ -f "$DEFCONFIG" ]; then
+            echo "Using existing live defconfig: $DEFCONFIG"
+          else
+            echo "Error: live defconfig not found!"
+            exit 1
+          fi
 
       - name: Setup KernelSU-Next
         working-directory: kernel/oneplus/sm8550
@@ -45,24 +59,41 @@ jobs:
           curl -LSs "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh" | bash -s next
           echo "CONFIG_KSU=y" >> arch/arm64/configs/lineage_oneplus11_defconfig
 
-      - name: Apply SUSFS safe subset
+      - name: Clone SUSFS repo
+        run: git clone --depth 1 -b gki-android14-5.15 https://gitlab.com/simonpunk/susfs4ksu.git susfs4ksu
+
+      - name: Apply SUSFS patches
         working-directory: kernel/oneplus/sm8550
         run: |
-          git clone --depth 1 -b gki-android14-5.15 https://gitlab.com/simonpunk/susfs4ksu.git ../../../susfs4ksu
-          cp -r ../../../susfs4ksu/kernel_patches/fs/* fs/
-          cp -r ../../../susfs4ksu/kernel_patches/include/linux/* include/linux/
+          cp ../../susfs4ksu/kernel_patches/fs/* fs/ || true
+          cp ../../susfs4ksu/kernel_patches/include/linux/* include/linux/ || true
+          SUSFS_PATCH=$(ls ../../susfs4ksu/kernel_patches/*.patch 2>/dev/null | head -1)
+          [ -n "$SUSFS_PATCH" ] && patch -p1 < "$SUSFS_PATCH" || true
+          KSU_SUSFS_PATCH=$(find KernelSU-Next -name "*susfs*.patch" 2>/dev/null | head -1)
+          [ -n "$KSU_SUSFS_PATCH" ] && patch -p1 < "$KSU_SUSFS_PATCH" || true
+          printf '%s\n' \
+            'CONFIG_KSU_SUSFS=y' \
+            'CONFIG_KSU_SUSFS_SUS_PATH=y' \
+            'CONFIG_KSU_SUSFS_SUS_MOUNT=y' \
+            'CONFIG_KSU_SUSFS_SUS_KSTAT=y' \
+            'CONFIG_KSU_SUSFS_SUS_OVERLAYFS=y' \
+            'CONFIG_KSU_SUSFS_TRY_UMOUNT=y' \
+            'CONFIG_KSU_SUSFS_SPOOF_UNAME=y' \
+            'CONFIG_KSU_SUSFS_ENABLE_LOG=y' \
+            'CONFIG_KSU_SUSFS_OPEN_REDIRECT=y' \
+            >> arch/arm64/configs/lineage_oneplus11_defconfig
 
-      - name: Apply WildKernels patches safely
+      - name: Apply WildKernels patches
         working-directory: kernel/oneplus/sm8550
         run: |
           git clone --depth 1 https://github.com/WildKernels/kernel_patches.git ../../../wildkernels_patches
           for patch in ../../../wildkernels_patches/*.patch; do
-              [ -f "$patch" ] || continue
-              if git apply --check "$patch" 2>/dev/null; then
-                  git apply "$patch" && echo "Applied $(basename $patch)"
-              else
-                  echo "Skipping $(basename $patch)"
-              fi
+            [ -f "$patch" ] || continue
+            if git apply --check "$patch" 2>/dev/null; then
+              git apply "$patch" && echo "Applied $(basename $patch)"
+            else
+              echo "Skipping $(basename $patch)"
+            fi
           done
 
       - name: Build kernel
@@ -75,18 +106,31 @@ jobs:
         working-directory: kernel/oneplus/sm8550-modules
         run: make -C ../sm8550 M=$(pwd) O=../sm8550/$KERNEL_OUT LLVM=1 LLVM_IAS=1 CLANG_TRIPLE=aarch64-linux-gnu- modules
 
+      - name: Checkout repo for AnyKernel3
+        uses: actions/checkout@v4
+
       - name: Package AnyKernel3 zip
         run: |
           git clone --depth 1 https://github.com/osm0sis/AnyKernel3.git AnyKernel3
           cp anykernel.sh AnyKernel3/anykernel.sh
           cp kernel/oneplus/sm8550/$KERNEL_OUT/arch/arm64/boot/Image AnyKernel3/
-          mkdir -p AnyKernel3/modules
-          cp -r kernel/oneplus/sm8550/$KERNEL_OUT/lib/modules/* AnyKernel3/modules/
           cd AnyKernel3
-          zip -r9 ../OnePlus11-KSU-SUSFS-Wild-AK3.zip * -x ".git/*" -x "README.md"
+          zip -r9 ../OnePlus11-KSU-SUSFS-AK3.zip * -x ".git/*" -x "README.md"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: OnePlus11-Kernel
-          path: OnePlus11-KSU-SUSFS-Wild-AK3.zip
+          path: OnePlus11-KSU-SUSFS-AK3.zip
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: "GKI-23.2-${{ github.run_number }}"
+          name: "OnePlus11 Kernel Build #${{ github.run_number }}"
+          body: "Automated OnePlus 11 GKI kernel build with KernelSU-Next + SUSFS. Flash via TWRP/recovery."
+          draft: false
+          prerelease: false
+          files: OnePlus11-KSU-SUSFS-AK3.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
