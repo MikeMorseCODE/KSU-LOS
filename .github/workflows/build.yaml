@@ -31,13 +31,12 @@ jobs:
         git config --global url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
 
     - name: Install dependencies
-      run: |
-        sudo pacman update
-        sudo pacman install -y git curl unzip bc bison build-essential \
-            libncurses-dev flex libssl-dev libelf-dev wget zip ccache \
-            python3 python3-pip python3-venv python3-setuptools python3-dev
-        sudo pacman install -y python3.12-distutils || sudo apt install -y python3-distutils || echo "distutils fallback skipped"
-
+  run: |
+    sudo pacman -Syu --noconfirm
+    sudo pacman -S --needed --noconfirm \
+      git curl unzip bc bison base-devel ncurses flex openssl elfutils \
+      wget zip ccache clang lld llvm python python-pip python-setuptools
+    python -m pip install --user --upgrade pip setuptools wheel
     - name: Setup ccache
       uses: actions/cache@v3
       with:
