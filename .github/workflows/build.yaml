@@ -13,6 +13,7 @@ on:
 jobs:
   build_kernel:
     runs-on: self-hosted
+
     env:
       ARCH: arm64
       CROSS_COMPILE: aarch64-linux-gnu-
@@ -21,37 +22,21 @@ jobs:
       KERNEL_OUT: out
 
     steps:
-    - name: Checkout workflow repo
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+      - name: Install dependencies
+        run: |
+          sudo pacman -Syu --noconfirm
+          sudo pacman -S --needed --noconfirm \
+            git curl unzip bc bison base-devel ncurses flex openssl elfutils \
+            wget zip ccache clang lld llvm python python-pip python-setuptools
+          python -m pip install --user --upgrade pip setuptools wheel
 
-    - name: Configure Git authentication
-      run: |
-        git config --global url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
+      - name: Clone kernel source
+        run: |
+          git clone https://github.com/MikeMorseCODE/android_kernel_oneplus_sm8550.git kernel/oneplus/sm8550
 
-    - name: Setup ccache
-      uses: actions/cache@v3
-      with:
-        path: ${{ github.workspace }}/.ccache
-        key: ccache-${{ runner.os }}-${{ hashFiles('**/.config') }}
-        restore-keys: ccache-${{ runner.os }}-
-    
-    - name: Install dependencies
-  run: |
-    sudo pacman -Syu --noconfirm
-    sudo pacman -S --needed --noconfirm \
-      git curl unzip bc bison base-devel ncurses flex openssl elfutils \
-      wget zip ccache clang lld llvm python python-pip python-setuptools
-    python -m pip install --user --upgrade pip setuptools wheel
-    
-    - name: Clone kernel source
-      run: |
-        git clone https://github.com/MikeMorseCODE/android_kernel_oneplus_sm8550.git kernel/oneplus/sm8550 || echo "Kernel clone skipped"
-
-    - name: Clone device tree
-      run: |
-        git clone -b lineage-23.2 https://github.com/LineageOS/android_device_oneplus_salami.git kernel/oneplus/salami‑devicetree || echo "Device tree clone skipped"
+      - name: Clone device tree
+        run: |
+          git clone -b lineage-23.2 https://github.com/LineageOS/android_device_oneplus_salami.git kernel/oneplus/salami-devicetree
 
     - name: Detect kernel version
       id: detect_kernel
