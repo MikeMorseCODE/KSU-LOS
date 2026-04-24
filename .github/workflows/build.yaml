@@ -94,20 +94,26 @@ jobs:
               echo "Skipped $(basename "$patch")"
             fi
           done
-      - name: Fix missing Oplus Kconfig references
-        working-directory: kernel/oneplus/sm8550
-        run: |
-          grep -R "oplus_nfc/Kconfig\|kernelFwUpdate/Kconfig" -n . || true
+            - name: Fix missing Oplus Kconfig references
+          working-directory: kernel/oneplus/sm8550
+          run: |
+          grep -R "oplus_nfc/Kconfig\|kernelFwUpdate/Kconfig\|tri_state_key/Kconfig" -n . || true
 
           grep -RIl "oplus_nfc/Kconfig" . | xargs -r sed -i '/oplus_nfc\/Kconfig/d'
           grep -RIl "kernelFwUpdate/Kconfig" . | xargs -r sed -i '/kernelFwUpdate\/Kconfig/d'
+          grep -RIl "tri_state_key/Kconfig" . | xargs -r sed -i '/tri_state_key\/Kconfig/d'
 
-          echo "# CONFIG_OPLUS_NFC is not set" >> arch/arm64/configs/lineage_oneplus11_defconfig
-          echo "# CONFIG_OPLUS_FEATURE_NFC is not set" >> arch/arm64/configs/lineage_oneplus11_defconfig
-          echo "# CONFIG_KERNEL_FW_UPDATE is not set" >> arch/arm64/configs/lineage_oneplus11_defconfig
-          echo "# CONFIG_OPLUS_KERNEL_FW_UPDATE is not set" >> arch/arm64/configs/lineage_oneplus11_defconfig
-          grep -RIl "PATH/Kconfig" . | xargs -r sed -i '/PATH\/Kconfig/d'
-      
+          cat >> arch/arm64/configs/lineage_oneplus11_defconfig <<'EOF'
+          # CONFIG_OPLUS_NFC is not set
+          # CONFIG_OPLUS_FEATURE_NFC is not set
+          # CONFIG_KERNEL_FW_UPDATE is not set
+          # CONFIG_OPLUS_KERNEL_FW_UPDATE is not set
+          # CONFIG_TRI_STATE_KEY is not set
+          # CONFIG_INPUT_TRI_STATE_KEY is not set
+          # CONFIG_OPLUS_TRI_STATE_KEY is not set
+          EOF
+
+          grep -R "oplus_nfc/Kconfig\|kernelFwUpdate/Kconfig\|tri_state_key/Kconfig" -n . || true
       
       
       
