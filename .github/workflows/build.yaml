@@ -15,69 +15,36 @@ jobs:
       KERNEL_OUT: out
 
     steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
       - name: Clean workspace
         run: |
           rm -rf kernel
-          rm -rf out
           rm -rf susfs4ksu
           rm -rf wildkernels_patches
-          rm -rf AnyKernel3
-          rm -f OnePlus11-*.zip
-      
-      
-      
+          rm -rf out
+
       - name: Install dependencies
         run: |
           sudo pacman -Syu --noconfirm
           sudo pacman -S --needed --noconfirm \
             git curl unzip bc bison base-devel ncurses flex openssl elfutils \
-            wget zip ccache clang lld llvm python python-pip python-setuptools python-wheel
-          
-      - name: Clone kernel source
+            wget zip ccache clang lld llvm python python-pip python-setuptools
+
+      - name: Clone kernel
         run: |
           git clone https://github.com/MikeMorseCODE/android_kernel_oneplus_sm8550.git kernel/oneplus/sm8550
 
-      - name: Clone device tree
-        run: |
-          git clone -b lineage-23.2 https://github.com/LineageOS/android_device_oneplus_salami.git kernel/oneplus/salami-devicetree
-     
-      - name: Detect kernel version
-        id: detect_kernel
-        run: |
-          KVER=$(grep "^VERSION =" kernel/oneplus/sm8550/Makefile | awk '{print $3}')
-          echo "KERNEL_VERSION=$KVER" >> $GITHUB_ENV
-
-      - name: Patch live defconfig
-        working-directory: kernel/oneplus/sm8550
-        run: |
-          if [ ! -f ../../../lineage_oneplus11_defconfig ]; then
-            echo "lineage_oneplus11_defconfig missing!"
-            ls -la ../../../
-            exit 1
-          fi
-      
-          cp ../../../lineage_oneplus11_defconfig arch/arm64/configs/lineage_oneplus11_defconfig
-      
-          echo "# CONFIG_OPLUS_SENSOR_DEVINFO is not set" >> arch/arm64/configs/lineage_oneplus11_defconfig
-          echo "# CONFIG_OPLUS_FEATURE_SENSOR_CFG is not set" >> arch/arm64/configs/lineage_oneplus11_defconfig
-
-      - name: Setup KernelSU‑Next
-        working-directory: kernel/oneplus/sm8550
-        run: |
-          curl -sL https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh | bash -s next
-          echo "CONFIG_KSU=y" >> arch/arm64/configs/lineage_oneplus11_defconfig
-
       - name: Clone SUSFS
         run: |
-          rm -rf susfs4ksu
-           git clone --depth 1 -b gki-android14-5.15 https://gitlab.com/simonpunk/susfs4ksu.git susfs4ksu
+          git clone --depth 1 -b gki-android14-5.15 https://gitlab.com/simonpunk/susfs4ksu.git susfs4ksu
 
       - name: Apply SUSFS patches
         working-directory: kernel/oneplus/sm8550
         run: |
-          cp -r susfs/kernel_patches/fs/* fs/ 2>/dev/null || true
-          cp -r susfs/kernel_patches/include/linux/* include/linux/ 2>/dev/null || true
-          echo "Applied SUSFS file includes"
+          cp -rf ../../../susfs4ksu/kernel_patches/fs/* fs/ 2>/dev/null || true
+          cp -rf ../../../susfs4ksu/kernel_patches/include/linux/* include/linux/ 2>/dev/null || true
 
       - name: Apply WildKernels patches
         working-directory: kernel/oneplus/sm8550
@@ -87,36 +54,26 @@ jobs:
 
           for patch in ../../../wildkernels_patches/*.patch; do
             [ -f "$patch" ] || continue
-            if git apply --check "$patch" 2>/dev/null; then
-              git apply "$patch"
+
+            if git apply --check --whitespace=nowarn "$patch" 2>/dev/null; then
+              git apply --whitespace=nowarn "$patch"
               echo "Applied $(basename "$patch")"
             else
               echo "Skipped $(basename "$patch")"
             fi
           done
-            - name: Fix missing Oplus Kconfig references
-          working-directory: kernel/oneplus/sm8550
-          run: |
-          grep -R "oplus_nfc/Kconfig\|kernelFwUpdate/Kconfig\|tri_state_key/Kconfig" -n . || true
 
+      - name: Fix missing Oplus Kconfig references
+        working-directory: kernel/oneplus/sm8550
+        run: |
           grep -RIl "oplus_nfc/Kconfig" . | xargs -r sed -i '/oplus_nfc\/Kconfig/d'
           grep -RIl "kernelFwUpdate/Kconfig" . | xargs -r sed -i '/kernelFwUpdate\/Kconfig/d'
           grep -RIl "tri_state_key/Kconfig" . | xargs -r sed -i '/tri_state_key\/Kconfig/d'
 
-          cat >> arch/arm64/configs/lineage_oneplus11_defconfig <<'EOF'
-          # CONFIG_OPLUS_NFC is not set
-          # CONFIG_OPLUS_FEATURE_NFC is not set
-          # CONFIG_KERNEL_FW_UPDATE is not set
-          # CONFIG_OPLUS_KERNEL_FW_UPDATE is not set
-          # CONFIG_TRI_STATE_KEY is not set
-          # CONFIG_INPUT_TRI_STATE_KEY is not set
-          # CONFIG_OPLUS_TRI_STATE_KEY is not set
-          EOF
+          echo "# CONFIG_OPLUS_NFC is not set" >> arch/arm64/configs/lineage_oneplus11_defconfig
+          echo "# CONFIG_KERNEL_FW_UPDATE is not set" >> arch/arm64/configs/lineage_oneplus11_defconfig
+          echo "# CONFIG_TRI_STATE_KEY is not set" >> arch/arm64/configs/lineage_oneplus11_defconfig
 
-          grep -R "oplus_nfc/Kconfig\|kernelFwUpdate/Kconfig\|tri_state_key/Kconfig" -n . || true
-      
-      
-      
       - name: Build kernel
         working-directory: kernel/oneplus/sm8550
         run: |
