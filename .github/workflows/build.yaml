@@ -83,7 +83,25 @@ jobs:
             [ -f "$patch" ] || continue
             git apply --check "$patch" 2>/dev/null && git apply "$patch" && echo "Applied $patch" || echo "Skipped $patch"
             done
+      - name: Fix missing Oplus Kconfig references
+        working-directory: kernel/oneplus/sm8550
+        run: |
+          echo "Searching for missing oplus_nfc Kconfig reference..."
+          grep -R "oplus_nfc/Kconfig" -n . || true
 
+          # Remove any Kconfig source lines referencing missing Oplus NFC tree
+          grep -RIl "oplus_nfc/Kconfig" . | xargs -r sed -i '/oplus_nfc\/Kconfig/d'
+
+          echo "# CONFIG_OPLUS_NFC is not set" >> arch/arm64/configs/lineage_oneplus11_defconfig
+          echo "# CONFIG_OPLUS_FEATURE_NFC is not set" >> arch/arm64/configs/lineage_oneplus11_defconfig
+
+          echo "After patch:"
+          grep -R "oplus_nfc/Kconfig" -n . || true
+      
+      
+      
+      
+      
       - name: Build kernel
         working-directory: kernel/oneplus/sm8550
         run: |
