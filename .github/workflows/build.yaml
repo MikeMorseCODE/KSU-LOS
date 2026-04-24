@@ -30,6 +30,13 @@ jobs:
       run: |
         git config --global url."https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/".insteadOf "https://github.com/"
 
+    - name: Setup ccache
+      uses: actions/cache@v3
+      with:
+        path: ${{ github.workspace }}/.ccache
+        key: ccache-${{ runner.os }}-${{ hashFiles('**/.config') }}
+        restore-keys: ccache-${{ runner.os }}-
+    
     - name: Install dependencies
   run: |
     sudo pacman -Syu --noconfirm
@@ -37,13 +44,7 @@ jobs:
       git curl unzip bc bison base-devel ncurses flex openssl elfutils \
       wget zip ccache clang lld llvm python python-pip python-setuptools
     python -m pip install --user --upgrade pip setuptools wheel
-    - name: Setup ccache
-      uses: actions/cache@v3
-      with:
-        path: ${{ github.workspace }}/.ccache
-        key: ccache-${{ runner.os }}-${{ hashFiles('**/.config') }}
-        restore-keys: ccache-${{ runner.os }}-
-
+    
     - name: Clone kernel source
       run: |
         git clone https://github.com/MikeMorseCODE/android_kernel_oneplus_sm8550.git kernel/oneplus/sm8550 || echo "Kernel clone skipped"
