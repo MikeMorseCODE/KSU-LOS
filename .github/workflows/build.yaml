@@ -64,7 +64,9 @@ jobs:
           echo "CONFIG_KSU=y" >> arch/arm64/configs/lineage_oneplus11_defconfig
 
       - name: Clone SUSFS
-        run: git clone https://github.com/WildKernels/susfs.git kernel/oneplus/sm8550/susfs
+        run: |
+          rm -rf susfs4ksu
+           git clone --depth 1 -b gki-android14-5.15 https://gitlab.com/simonpunk/susfs4ksu.git susfs4ksu
 
       - name: Apply SUSFS patches
         working-directory: kernel/oneplus/sm8550
