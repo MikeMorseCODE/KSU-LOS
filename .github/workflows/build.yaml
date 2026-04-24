@@ -39,14 +39,16 @@ jobs:
       - name: Patch live defconfig
         working-directory: kernel/oneplus/sm8550
         run: |
-          if [ ! -f ../../lineage_oneplus11_defconfig ]; then
+          if [ ! -f ../../../lineage_oneplus11_defconfig ]; then
             echo "lineage_oneplus11_defconfig missing!"
+            ls -la ../../../
             exit 1
           fi
-          cp ../../lineage_oneplus11_defconfig arch/arm64/configs/
+      
+          cp ../../../lineage_oneplus11_defconfig arch/arm64/configs/lineage_oneplus11_defconfig
+      
           echo "# CONFIG_OPLUS_SENSOR_DEVINFO is not set" >> arch/arm64/configs/lineage_oneplus11_defconfig
           echo "# CONFIG_OPLUS_FEATURE_SENSOR_CFG is not set" >> arch/arm64/configs/lineage_oneplus11_defconfig
-          echo "Patched defconfig to disable Oplus sensors"
 
       - name: Setup KernelSU‑Next
         working-directory: kernel/oneplus/sm8550
