@@ -19,6 +19,10 @@ jobs:
         run: |
           rm -rf kernel
           rm -rf out
+          rm -rf susfs4ksu
+          rm -rf wildkernels_patches
+          rm -rf AnyKernel3
+          rm -f OnePlus11-*.zip
       
       
       
@@ -78,11 +82,18 @@ jobs:
       - name: Apply WildKernels patches
         working-directory: kernel/oneplus/sm8550
         run: |
-          git clone https://github.com/WildKernels/kernel_patches.git ../../../wildkernels_patches
+          rm -rf ../../../wildkernels_patches
+          git clone --depth 1 https://github.com/WildKernels/kernel_patches.git ../../../wildkernels_patches
+
           for patch in ../../../wildkernels_patches/*.patch; do
             [ -f "$patch" ] || continue
-            git apply --check "$patch" 2>/dev/null && git apply "$patch" && echo "Applied $patch" || echo "Skipped $patch"
-            done
+            if git apply --check "$patch" 2>/dev/null; then
+              git apply "$patch"
+              echo "Applied $(basename "$patch")"
+            else
+              echo "Skipped $(basename "$patch")"
+            fi
+          done
       - name: Fix missing Oplus Kconfig references
         working-directory: kernel/oneplus/sm8550
         run: |
