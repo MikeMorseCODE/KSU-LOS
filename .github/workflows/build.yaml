@@ -20,9 +20,8 @@ jobs:
           sudo pacman -Syu --noconfirm
           sudo pacman -S --needed --noconfirm \
             git curl unzip bc bison base-devel ncurses flex openssl elfutils \
-            wget zip ccache clang lld llvm python python-pip python-setuptools
-          python -m pip install --user --upgrade pip setuptools wheel
-
+            wget zip ccache clang lld llvm python python-pip python-setuptools python-wheel
+          
       - name: Clone kernel source
         run: |
           git clone https://github.com/MikeMorseCODE/android_kernel_oneplus_sm8550.git kernel/oneplus/sm8550
