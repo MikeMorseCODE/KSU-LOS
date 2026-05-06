@@ -1,1 +1,5 @@
-kernel/oneplus/sm8550/
+kernel/
+out/
+AnyKernel3/
+OnePlus11-Kernel.zip
+.ccache/
