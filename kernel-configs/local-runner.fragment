@@ -1,0 +1,6 @@
+# Keep self-hosted/local runner memory use below typical container limits.
+# Full LTO was OOM-killed in a 17 GiB container while linking vmlinux.
+CONFIG_LTO_CLANG_THIN=y
+# Avoid local LLVM-17/18 MODVERSIONS relocation failures seen with ThinLTO.
+# Device release builds can remove this if they use the exact Android clang.
+# CONFIG_MODVERSIONS is not set
